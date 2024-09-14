@@ -1,0 +1,41 @@
+<resources>
+    <string name="app_name">Scan Bus App</string>
+
+    <!-- Libellés pour l'interface utilisateur -->
+    <string name="user_label">Utilisateur :</string>
+    <string name="role_label">Rôle :</string>
+    <string name="client_found">Client trouvé :</string>
+    <string name="client_not_found">Client non trouvé ou erreur</string>
+    <string name="server_communication_error">Erreur de communication avec le serveur</string>
+    <string name="assign_day_pass_success">Forfait jour attribué avec succès.</string>
+    <string name="assign_week_pass_success">Forfait semaine attribué avec succès.</string>
+    <string name="assign_month_pass_success">Forfait mois attribué avec succès.</string>
+    <string name="assign_pass_error">Erreur lors attribution du forfait.</string>
+    <string name="forfait_status">Forfait actif jusqu à :</string>
+    <string name="forfait_status_error">Impossible de vérifier le statut du forfait</string>
+
+    <!-- Destinations -->
+    <string-array name="destination_array">
+        <item>Okala-PK12</item>
+        <item>Nzeng Ayong-Mindoubé</item>
+        <item>Owendo-Petit Paris</item>
+        <item>Charbonnages-Mont Bouët</item>
+        <item>Glass-Akanda</item>
+        <item>Carrefour Rio-Gare routière</item>
+        <item>Aéroport-Lycée Djoué Dabany</item>
+        <item>PK8-Marché Mont Bouët</item>
+        <item>Dragage-Belle Vue</item>
+        <item>Centre-ville-SIAEB</item>
+    </string-array>
+
+    <!-- Strings used for fragments for navigation -->
+    <string name="first_fragment_label">First Fragment</string>
+    <string name="second_fragment_label">Second Fragment</string>
+    <string name="next">Next</string>
+    <string name="previous">Previous</string>
+
+    <!-- Placeholder text -->
+    <string name="lorem_ipsum">
+        Lorem ipsum dolor sit amet, consectetur adipiscing elit. Nam in scelerisque sem. Mauris volutpat...
+    </string>
+</resources>

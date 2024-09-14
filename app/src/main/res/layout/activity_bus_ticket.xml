@@ -1,0 +1,135 @@
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:padding="16dp"
+    android:background="@android:color/white">
+
+    <!-- Affichage du profil utilisateur -->
+    <TextView
+        android:id="@+id/profile_text_view"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Profil :"
+        android:textSize="18sp"
+        android:textColor="@android:color/black"
+        android:layout_alignParentTop="true"
+        android:layout_marginBottom="8dp"
+        android:layout_marginStart="16dp"
+        android:textStyle="bold" />
+
+    <!-- Affichage du nom du chauffeur -->
+    <TextView
+        android:id="@+id/driver_name_text_view"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Chauffeur :"
+        android:textSize="16sp"
+        android:textColor="@android:color/black"
+        android:layout_below="@id/profile_text_view"
+        android:layout_marginTop="4dp"
+        android:layout_marginStart="16dp" />
+
+    <!-- Affichage du rôle du chauffeur -->
+    <TextView
+        android:id="@+id/driver_role_text_view"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Rôle :"
+        android:textSize="16sp"
+        android:textColor="@android:color/black"
+        android:layout_below="@id/driver_name_text_view"
+        android:layout_marginTop="4dp"
+        android:layout_marginStart="16dp" />
+
+    <!-- Champ pour entrer le RFID -->
+    <EditText
+        android:id="@+id/rfid_input"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:hint="Enter RFID"
+        android:padding="10dp"
+        android:textSize="16sp"
+        android:background="@android:drawable/edit_text"
+        android:layout_below="@id/driver_role_text_view"
+        android:layout_marginTop="16dp" />
+
+    <!-- Zone d'affichage des résultats -->
+    <TextView
+        android:id="@+id/result_view"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:padding="10dp"
+        android:text="Result will appear here"
+        android:textSize="16sp"
+        android:textColor="@android:color/black"
+        android:layout_below="@id/rfid_input"
+        android:layout_marginTop="16dp"
+        android:background="@android:drawable/edit_text" />
+
+    <!-- Layout en grille pour organiser les boutons -->
+    <GridLayout
+        android:id="@+id/grid_layout"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_below="@id/result_view"
+        android:layout_marginTop="16dp"
+        android:columnCount="2"
+        android:rowCount="3"
+        android:layout_gravity="center">
+
+        <!-- Bouton pour vérifier la carte RFID -->
+        <Button
+            android:id="@+id/verify_button"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_columnWeight="1"
+            android:layout_margin="8dp"
+            android:text="Verify"
+            android:backgroundTint="#0F9D58"
+            android:textColor="@android:color/white" />
+
+        <!-- Bouton pour attribuer un forfait jour -->
+        <Button
+            android:id="@+id/forfait_day_button"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_columnWeight="1"
+            android:layout_margin="8dp"
+            android:text="Forfait Day"
+            android:backgroundTint="#0F9D58"
+            android:textColor="@android:color/white" />
+
+        <!-- Bouton pour attribuer un forfait semaine -->
+        <Button
+            android:id="@+id/forfait_week_button"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_columnWeight="1"
+            android:layout_margin="8dp"
+            android:text="Forfait Week"
+            android:backgroundTint="#0F9D58"
+            android:textColor="@android:color/white" />
+
+        <!-- Bouton pour attribuer un forfait mois -->
+        <Button
+            android:id="@+id/forfait_month_button"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_columnWeight="1"
+            android:layout_margin="8dp"
+            android:text="Forfait Month"
+            android:backgroundTint="#0F9D58"
+            android:textColor="@android:color/white" />
+
+        <!-- Bouton pour vérifier le statut du forfait -->
+        <Button
+            android:id="@+id/check_forfait_status_button"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_columnWeight="1"
+            android:layout_margin="8dp"
+            android:text="Check Forfait Status"
+            android:backgroundTint="#0F9D58"
+            android:textColor="@android:color/white" />
+    </GridLayout>
+</RelativeLayout>

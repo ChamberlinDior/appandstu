@@ -1,0 +1,35 @@
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:padding="16dp">
+
+    <!-- Champ pour entrer le numéro unique -->
+    <EditText
+        android:id="@+id/uniqueUserNumber_input"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:hint="Enter Unique User Number"
+        android:inputType="text"
+        android:layout_marginTop="24dp" />
+
+    <!-- Champ pour entrer le nom -->
+    <EditText
+        android:id="@+id/name_input"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:hint="Enter Name"
+        android:inputType="text"
+        android:layout_below="@id/uniqueUserNumber_input"
+        android:layout_marginTop="16dp" />
+
+    <!-- Bouton de connexion -->
+    <Button
+        android:id="@+id/login_button"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Login"
+        android:layout_below="@id/name_input"
+        android:layout_centerHorizontal="true"
+        android:layout_marginTop="24dp" />
+
+</RelativeLayout>
