@@ -61,11 +61,19 @@ public class BusTicketActivity extends AppCompatActivity {
         forfaitMonthButton = findViewById(R.id.forfait_month_button);
         checkForfaitStatusButton = findViewById(R.id.check_forfait_status_button);
 
+        // Modification des labels pour les boutons en français
+        verifyButton.setText("Vérifier la carte");
+        forfaitDayButton.setText("Forfait jour");
+        forfaitWeekButton.setText("Forfait semaine");
+        forfaitMonthButton.setText("Forfait mois");
+        checkForfaitStatusButton.setText("Vérifier statut du forfait");
+
         driverNameTextView.setText(getString(R.string.user_label) + " " + nom);
         driverRoleTextView.setText(getString(R.string.role_label) + " " + role);
 
-        if ("chauffeur".equalsIgnoreCase(role)) {
-            hideNonChauffeurButtons();
+        // Masquer les boutons pour les chauffeurs et contrôleurs
+        if ("chauffeur".equalsIgnoreCase(role) || "controleur".equalsIgnoreCase(role)) {
+            hideNonChauffeurOrControleurButtons();
         }
 
         Retrofit retrofit = new Retrofit.Builder()
@@ -77,38 +85,38 @@ public class BusTicketActivity extends AppCompatActivity {
 
         verifyButton.setOnClickListener(v -> {
             String rfid = rfidInput.getText().toString();
-            Log.d(TAG, "RFID saisi: " + rfid);
+            Log.d(TAG, "RFID saisi : " + rfid);
             verifyCard(rfid);
         });
 
         forfaitDayButton.setOnClickListener(v -> {
             String rfid = rfidInput.getText().toString();
-            Log.d(TAG, "Attribuer forfait jour pour RFID: " + rfid);
+            Log.d(TAG, "Attribuer le forfait jour pour le RFID : " + rfid);
             assignForfait(rfid, "jour");
         });
 
         forfaitWeekButton.setOnClickListener(v -> {
             String rfid = rfidInput.getText().toString();
-            Log.d(TAG, "Attribuer forfait semaine pour RFID: " + rfid);
+            Log.d(TAG, "Attribuer le forfait semaine pour le RFID : " + rfid);
             assignForfait(rfid, "semaine");
         });
 
         forfaitMonthButton.setOnClickListener(v -> {
             String rfid = rfidInput.getText().toString();
-            Log.d(TAG, "Attribuer forfait mois pour RFID: " + rfid);
+            Log.d(TAG, "Attribuer le forfait mois pour le RFID : " + rfid);
             assignForfait(rfid, "mois");
         });
 
         checkForfaitStatusButton.setOnClickListener(v -> {
             String rfid = rfidInput.getText().toString();
-            Log.d(TAG, "Vérification du statut du forfait pour RFID: " + rfid);
+            Log.d(TAG, "Vérification du statut du forfait pour le RFID : " + rfid);
             checkForfaitStatus(rfid);
         });
 
         // Initialisation du NFC
         mAdapter = NfcAdapter.getDefaultAdapter(this);
         if (mAdapter == null) {
-            resultView.setText("NFC n'est pas supporté sur cet appareil.");
+            resultView.setText("Le NFC n'est pas supporté sur cet appareil.");
             return;
         }
 
@@ -144,7 +152,7 @@ public class BusTicketActivity extends AppCompatActivity {
             byte[] tagId = tag.getId();
             String rfid = bytesToHex(tagId); // Convertir le tag en un format lisible
             rfidInput.setText(rfid); // Afficher le numéro RFID dans le champ rfidInput
-            Log.d(TAG, "RFID scanné: " + rfid);
+            Log.d(TAG, "RFID scanné : " + rfid);
             // Appeler la fonction de vérification de statut du forfait
             checkForfaitStatus(rfid);
         }
@@ -158,15 +166,14 @@ public class BusTicketActivity extends AppCompatActivity {
         return sb.toString();
     }
 
-    private void hideNonChauffeurButtons() {
-        verifyButton.setVisibility(View.GONE);
+    // Méthode pour masquer les boutons "Forfait" pour les chauffeurs et contrôleurs
+    private void hideNonChauffeurOrControleurButtons() {
         forfaitDayButton.setVisibility(View.GONE);
         forfaitWeekButton.setVisibility(View.GONE);
         forfaitMonthButton.setVisibility(View.GONE);
-        checkForfaitStatusButton.setVisibility(View.GONE);
     }
 
-    // Vérifier si l'appareil est connecté à internet
+    // Vérifier si l'appareil est connecté à Internet
     private boolean isInternetAvailable() {
         ConnectivityManager cm = (ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
         NetworkInfo activeNetwork = cm.getActiveNetworkInfo();
@@ -176,18 +183,18 @@ public class BusTicketActivity extends AppCompatActivity {
     // Vérifier l'état du forfait et gérer la logique de connexion/déconnexion
     private void checkForfaitStatus(String rfid) {
         if (isInternetAvailable()) {
-            // Cas avec connexion internet
+            // Cas avec connexion Internet
             Call<ForfaitDTO> call = apiService.getForfaitStatus(rfid);
             call.enqueue(new Callback<ForfaitDTO>() {
                 @Override
                 public void onResponse(Call<ForfaitDTO> call, Response<ForfaitDTO> response) {
                     if (response.isSuccessful() && response.body() != null) {
                         ForfaitDTO forfait = response.body();
-                        Log.d(TAG, "Forfait actif jusqu'à: " + forfait.getDateExpiration());
-                        resultView.setText("Forfait actif jusqu'à: " + forfait.getDateExpiration());
+                        Log.d(TAG, "Forfait actif jusqu'à : " + forfait.getDateExpiration());
+                        resultView.setText("Forfait actif jusqu'à : " + forfait.getDateExpiration());
 
                         // Enregistrer les informations localement
-                        dbHelper.saveCardInfo(rfid, "Client Nom", true, forfait.getDateExpiration().toString());
+                        dbHelper.saveCardInfo(rfid, "Nom du client", true, forfait.getDateExpiration().toString());
                     } else {
                         Log.e(TAG, "Impossible de vérifier le statut du forfait.");
                         resultView.setText("Impossible de vérifier le statut du forfait.");
@@ -196,26 +203,25 @@ public class BusTicketActivity extends AppCompatActivity {
 
                 @Override
                 public void onFailure(Call<ForfaitDTO> call, Throwable t) {
-                    Log.e(TAG, "Erreur de vérification du forfait: " + t.getMessage());
-                    resultView.setText("Erreur: " + t.getMessage());
+                    Log.e(TAG, "Erreur lors de la vérification du forfait : " + t.getMessage());
+                    resultView.setText("Erreur : " + t.getMessage());
                 }
             });
         } else {
-            // Cas sans connexion internet : récupération des données locales
+            // Cas sans connexion Internet : récupération des données locales
             Cursor cursor = dbHelper.getCardInfo(rfid);
             if (cursor.moveToFirst()) {
                 int clientNameIndex = cursor.getColumnIndex("client_name");
                 int forfaitActiveIndex = cursor.getColumnIndex("forfait_active");
                 int forfaitExpirationIndex = cursor.getColumnIndex("forfait_expiration");
 
-                // Vérification de la validité des index de colonne
                 if (clientNameIndex != -1 && forfaitActiveIndex != -1 && forfaitExpirationIndex != -1) {
                     String clientName = cursor.getString(clientNameIndex);
                     boolean forfaitActive = cursor.getInt(forfaitActiveIndex) == 1;
                     String forfaitExpiration = cursor.getString(forfaitExpirationIndex);
 
-                    resultView.setText("Client: " + clientName + "\nForfait actif: " + (forfaitActive ? "Oui" : "Non") +
-                            "\nExpiration: " + forfaitExpiration);
+                    resultView.setText("Client : " + clientName + "\nForfait actif : " + (forfaitActive ? "Oui" : "Non") +
+                            "\nExpiration : " + forfaitExpiration);
                 } else {
                     resultView.setText("Informations manquantes dans la base de données.");
                 }
@@ -233,18 +239,18 @@ public class BusTicketActivity extends AppCompatActivity {
             public void onResponse(Call<ClientDTO> call, Response<ClientDTO> response) {
                 if (response.isSuccessful() && response.body() != null) {
                     ClientDTO client = response.body();
-                    Log.d(TAG, "Client trouvé: " + client.getNom() + " " + client.getPrenom());
+                    Log.d(TAG, "Client trouvé : " + client.getNom() + " " + client.getPrenom());
                     resultView.setText(getString(R.string.client_found) + " " + client.getNom() + " " + client.getPrenom());
                 } else {
-                    Log.e(TAG, "Erreur: Client non trouvé ou problème serveur");
+                    Log.e(TAG, "Erreur : Client non trouvé ou problème de serveur.");
                     resultView.setText(getString(R.string.client_not_found));
                 }
             }
 
             @Override
             public void onFailure(Call<ClientDTO> call, Throwable t) {
-                Log.e(TAG, "Erreur de vérification du client: " + t.getMessage());
-                resultView.setText("Erreur: " + t.getMessage());
+                Log.e(TAG, "Erreur lors de la vérification du client : " + t.getMessage());
+                resultView.setText("Erreur : " + t.getMessage());
             }
         });
     }
@@ -266,8 +272,8 @@ public class BusTicketActivity extends AppCompatActivity {
 
             @Override
             public void onFailure(Call<Void> call, Throwable t) {
-                Log.e(TAG, "Erreur d'attribution du forfait: " + t.getMessage());
-                resultView.setText("Erreur: " + t.getMessage());
+                Log.e(TAG, "Erreur lors de l'attribution du forfait : " + t.getMessage());
+                resultView.setText("Erreur : " + t.getMessage());
             }
         });
     }
