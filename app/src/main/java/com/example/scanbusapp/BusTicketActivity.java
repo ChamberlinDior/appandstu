@@ -11,6 +11,7 @@ import android.util.Log;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.TextView;
+import android.widget.Toast;
 import androidx.appcompat.app.AppCompatActivity;
 import retrofit2.Call;
 import retrofit2.Callback;
@@ -29,7 +30,7 @@ public class BusTicketActivity extends AppCompatActivity {
     private TextView profileTextView;
     private TextView driverNameTextView;
     private TextView driverRoleTextView;
-    private Button verifyButton, forfaitDayButton, forfaitWeekButton, forfaitMonthButton, checkForfaitStatusButton;
+    private Button verifyButton, forfaitDayButton, forfaitWeekButton, forfaitMonthButton, checkForfaitStatusButton, logoutButton;
     private String macAddress;
     private static final String TAG = "BusTicketActivity";
     private LocalDatabaseHelper dbHelper;
@@ -60,6 +61,7 @@ public class BusTicketActivity extends AppCompatActivity {
         forfaitWeekButton = findViewById(R.id.forfait_week_button);
         forfaitMonthButton = findViewById(R.id.forfait_month_button);
         checkForfaitStatusButton = findViewById(R.id.check_forfait_status_button);
+        logoutButton = findViewById(R.id.logout_button);
 
         // Modification des labels pour les boutons en français
         verifyButton.setText("Vérifier la carte");
@@ -70,6 +72,14 @@ public class BusTicketActivity extends AppCompatActivity {
 
         driverNameTextView.setText(getString(R.string.user_label) + " " + nom);
         driverRoleTextView.setText(getString(R.string.role_label) + " " + role);
+
+        // Action du bouton de déconnexion
+        logoutButton.setOnClickListener(v -> {
+            Toast.makeText(BusTicketActivity.this, "Déconnexion réussie", Toast.LENGTH_SHORT).show();
+            Intent intent = new Intent(BusTicketActivity.this, LoginActivity.class);
+            startActivity(intent);
+            finish(); // Fermer l'activité actuelle
+        });
 
         // Masquer les boutons pour les chauffeurs et contrôleurs
         if ("chauffeur".equalsIgnoreCase(role) || "controleur".equalsIgnoreCase(role)) {
