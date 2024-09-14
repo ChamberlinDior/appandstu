@@ -3,7 +3,7 @@ package com.example.scanbusapp;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
-import android.view.View; // Ajout de l'import pour View
+import android.view.View;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.Spinner;
@@ -39,17 +39,17 @@ public class BusTripActivity extends AppCompatActivity {
         startTimeView = findViewById(R.id.startTime_view);
         endTimeView = findViewById(R.id.endTime_view);
         macAddressView = findViewById(R.id.macAddress_view);
-        navbarTitle = findViewById(R.id.navbar_title);  // Ajout de la vue de la navbar pour le nom et rôle
+        navbarTitle = findViewById(R.id.navbar_title);
         startTripButton = findViewById(R.id.startTrip_button);
         endTripButton = findViewById(R.id.endTrip_button);
 
         // Récupérer l'ID Android (adresse MAC) du terminal
         macAddress = getIntent().getStringExtra("deviceId");
-        macAddressView.setText("MAC Address: " + macAddress);
+        macAddressView.setText("Adresse MAC : " + macAddress);
 
         // Rendre l'ID Android visible pendant 3 secondes après connexion
         macAddressView.setVisibility(View.VISIBLE);
-        new Handler(Looper.getMainLooper()).postDelayed(() -> macAddressView.setVisibility(View.GONE), 3000); // Cache après 3 secondes
+        new Handler(Looper.getMainLooper()).postDelayed(() -> macAddressView.setVisibility(View.GONE), 3000);
 
         // Récupérer les informations du chauffeur depuis l'intent
         String chauffeurNom = getIntent().getStringExtra("nom");
@@ -71,6 +71,10 @@ public class BusTripActivity extends AppCompatActivity {
                 .build();
 
         apiService = retrofit.create(ApiService.class);
+
+        // Modification des labels des boutons en français
+        startTripButton.setText("Démarrer le trajet");
+        endTripButton.setText("Terminer le trajet");
 
         // Démarrer un trajet
         startTripButton.setOnClickListener(v -> {
