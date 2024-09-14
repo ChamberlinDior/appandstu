@@ -138,6 +138,8 @@ public class BusTicketActivity extends AppCompatActivity {
             String rfid = bytesToHex(tagId); // Convertir le tag en un format lisible
             rfidInput.setText(rfid); // Afficher le numéro RFID dans le champ rfidInput
             Log.d(TAG, "RFID scanné: " + rfid);
+            // Appeler la fonction de vérification de statut du forfait
+            checkForfaitStatus(rfid);
         }
     }
 
