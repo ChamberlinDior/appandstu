@@ -4,8 +4,14 @@
 
     <!-- Permission pour l'accès à Internet -->
     <uses-permission android:name="android.permission.INTERNET" />
+
+    <!-- Permission pour accéder à l'état du réseau -->
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+
     <!-- Permission pour utiliser le NFC -->
     <uses-permission android:name="android.permission.NFC" />
+
+    <!-- Déclaration de la fonctionnalité NFC comme requise -->
     <uses-feature android:name="android.hardware.nfc" android:required="true" />
 
     <application
@@ -17,6 +23,7 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.ScanBusApp">
 
+        <!-- Déclaration de BusTripActivity -->
         <activity
             android:name=".BusTripActivity"
             android:exported="false"

@@ -1,7 +1,9 @@
 package com.example.scanbusapp;
 
 import android.app.PendingIntent;
+import android.content.Context;
 import android.content.Intent;
+import android.database.Cursor;
 import android.nfc.NfcAdapter;
 import android.nfc.Tag;
 import android.os.Bundle;
@@ -16,6 +18,8 @@ import retrofit2.Response;
 import retrofit2.Retrofit;
 import retrofit2.converter.gson.GsonConverterFactory;
 import android.view.View;
+import android.net.ConnectivityManager;
+import android.net.NetworkInfo;
 
 public class BusTicketActivity extends AppCompatActivity {
 
@@ -28,6 +32,7 @@ public class BusTicketActivity extends AppCompatActivity {
     private Button verifyButton, forfaitDayButton, forfaitWeekButton, forfaitMonthButton, checkForfaitStatusButton;
     private String macAddress;
     private static final String TAG = "BusTicketActivity";
+    private LocalDatabaseHelper dbHelper;
 
     private NfcAdapter mAdapter;
     private PendingIntent mPendingIntent;
@@ -36,6 +41,8 @@ public class BusTicketActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_bus_ticket);
+
+        dbHelper = new LocalDatabaseHelper(this); // Initialisation de la base de données locale
 
         String nom = getIntent().getStringExtra("nom");
         String role = getIntent().getStringExtra("role");
@@ -159,6 +166,66 @@ public class BusTicketActivity extends AppCompatActivity {
         checkForfaitStatusButton.setVisibility(View.GONE);
     }
 
+    // Vérifier si l'appareil est connecté à internet
+    private boolean isInternetAvailable() {
+        ConnectivityManager cm = (ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
+        NetworkInfo activeNetwork = cm.getActiveNetworkInfo();
+        return activeNetwork != null && activeNetwork.isConnectedOrConnecting();
+    }
+
+    // Vérifier l'état du forfait et gérer la logique de connexion/déconnexion
+    private void checkForfaitStatus(String rfid) {
+        if (isInternetAvailable()) {
+            // Cas avec connexion internet
+            Call<ForfaitDTO> call = apiService.getForfaitStatus(rfid);
+            call.enqueue(new Callback<ForfaitDTO>() {
+                @Override
+                public void onResponse(Call<ForfaitDTO> call, Response<ForfaitDTO> response) {
+                    if (response.isSuccessful() && response.body() != null) {
+                        ForfaitDTO forfait = response.body();
+                        Log.d(TAG, "Forfait actif jusqu'à: " + forfait.getDateExpiration());
+                        resultView.setText("Forfait actif jusqu'à: " + forfait.getDateExpiration());
+
+                        // Enregistrer les informations localement
+                        dbHelper.saveCardInfo(rfid, "Client Nom", true, forfait.getDateExpiration().toString());
+                    } else {
+                        Log.e(TAG, "Impossible de vérifier le statut du forfait.");
+                        resultView.setText("Impossible de vérifier le statut du forfait.");
+                    }
+                }
+
+                @Override
+                public void onFailure(Call<ForfaitDTO> call, Throwable t) {
+                    Log.e(TAG, "Erreur de vérification du forfait: " + t.getMessage());
+                    resultView.setText("Erreur: " + t.getMessage());
+                }
+            });
+        } else {
+            // Cas sans connexion internet : récupération des données locales
+            Cursor cursor = dbHelper.getCardInfo(rfid);
+            if (cursor.moveToFirst()) {
+                int clientNameIndex = cursor.getColumnIndex("client_name");
+                int forfaitActiveIndex = cursor.getColumnIndex("forfait_active");
+                int forfaitExpirationIndex = cursor.getColumnIndex("forfait_expiration");
+
+                // Vérification de la validité des index de colonne
+                if (clientNameIndex != -1 && forfaitActiveIndex != -1 && forfaitExpirationIndex != -1) {
+                    String clientName = cursor.getString(clientNameIndex);
+                    boolean forfaitActive = cursor.getInt(forfaitActiveIndex) == 1;
+                    String forfaitExpiration = cursor.getString(forfaitExpirationIndex);
+
+                    resultView.setText("Client: " + clientName + "\nForfait actif: " + (forfaitActive ? "Oui" : "Non") +
+                            "\nExpiration: " + forfaitExpiration);
+                } else {
+                    resultView.setText("Informations manquantes dans la base de données.");
+                }
+            } else {
+                resultView.setText("Informations non disponibles hors ligne.");
+            }
+            cursor.close();
+        }
+    }
+
     private void verifyCard(String rfid) {
         Call<ClientDTO> call = apiService.verifyCard(rfid);
         call.enqueue(new Callback<ClientDTO>() {
@@ -200,29 +267,6 @@ public class BusTicketActivity extends AppCompatActivity {
             @Override
             public void onFailure(Call<Void> call, Throwable t) {
                 Log.e(TAG, "Erreur d'attribution du forfait: " + t.getMessage());
-                resultView.setText("Erreur: " + t.getMessage());
-            }
-        });
-    }
-
-    private void checkForfaitStatus(String rfid) {
-        Call<ForfaitDTO> call = apiService.getForfaitStatus(rfid);
-        call.enqueue(new Callback<ForfaitDTO>() {
-            @Override
-            public void onResponse(Call<ForfaitDTO> call, Response<ForfaitDTO> response) {
-                if (response.isSuccessful() && response.body() != null) {
-                    ForfaitDTO forfait = response.body();
-                    Log.d(TAG, "Forfait actif jusqu'à: " + forfait.getDateExpiration());
-                    resultView.setText("Forfait actif jusqu'à: " + forfait.getDateExpiration());
-                } else {
-                    Log.e(TAG, "Impossible de vérifier le statut du forfait.");
-                    resultView.setText("Impossible de vérifier le statut du forfait.");
-                }
-            }
-
-            @Override
-            public void onFailure(Call<ForfaitDTO> call, Throwable t) {
-                Log.e(TAG, "Erreur de vérification du forfait: " + t.getMessage());
                 resultView.setText("Erreur: " + t.getMessage());
             }
         });
