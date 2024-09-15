@@ -192,35 +192,56 @@ public class BusTicketActivity extends AppCompatActivity {
         return activeNetwork != null && activeNetwork.isConnectedOrConnecting();
     }
 
-    // Vérifier l'état du forfait et gérer la logique de connexion/déconnexion
+    // Vérifier l'état du forfait et afficher les informations du client
     private void checkForfaitStatus(String rfid) {
         if (isInternetAvailable()) {
             // Cas avec connexion Internet
-            Call<ForfaitDTO> call = apiService.getForfaitStatus(rfid);
-            call.enqueue(new Callback<ForfaitDTO>() {
+            Call<ClientDTO> call = apiService.verifyCard(rfid);
+            call.enqueue(new Callback<ClientDTO>() {
                 @Override
-                public void onResponse(Call<ForfaitDTO> call, Response<ForfaitDTO> response) {
+                public void onResponse(Call<ClientDTO> call, Response<ClientDTO> response) {
                     if (response.isSuccessful() && response.body() != null) {
-                        ForfaitDTO forfait = response.body();
-                        if (forfait.getDateExpiration() != null) {
-                            Log.d(TAG, "Forfait actif jusqu'à : " + forfait.getDateExpiration());
-                            resultView.setText("Forfait actif jusqu'à : " + forfait.getDateExpiration());
-                            // Enregistrer les informations localement
-                            dbHelper.saveCardInfo(rfid, "Nom du client", true, forfait.getDateExpiration().toString());
-                        } else {
-                            Log.d(TAG, "Aucun forfait actif trouvé pour ce client.");
-                            resultView.setText("Aucun forfait actif trouvé pour ce client.");
-                        }
+                        ClientDTO client = response.body();
+                        // Appel pour vérifier le forfait du client
+                        Call<ForfaitDTO> forfaitCall = apiService.getForfaitStatus(rfid);
+                        forfaitCall.enqueue(new Callback<ForfaitDTO>() {
+                            @Override
+                            public void onResponse(Call<ForfaitDTO> call, Response<ForfaitDTO> response) {
+                                if (response.isSuccessful() && response.body() != null) {
+                                    ForfaitDTO forfait = response.body();
+                                    if (forfait.getDateExpiration() != null) {
+                                        Log.d(TAG, "Forfait actif jusqu'à : " + forfait.getDateExpiration());
+                                        resultView.setText("Client : " + client.getNom() + " " + client.getPrenom() +
+                                                "\nForfait actif jusqu'à : " + forfait.getDateExpiration());
+                                        // Enregistrer les informations localement
+                                        dbHelper.saveCardInfo(rfid, client.getNom(), true, forfait.getDateExpiration().toString());
+                                    } else {
+                                        Log.d(TAG, "Aucun forfait actif trouvé pour ce client.");
+                                        resultView.setText("Client : " + client.getNom() + " " + client.getPrenom() +
+                                                "\nAucun forfait actif trouvé.");
+                                    }
+                                } else {
+                                    Log.e(TAG, "Erreur lors de la vérification du forfait.");
+                                    resultView.setText("Erreur lors de la vérification du forfait.");
+                                }
+                            }
+
+                            @Override
+                            public void onFailure(Call<ForfaitDTO> call, Throwable t) {
+                                Log.e(TAG, "Erreur lors de la vérification du forfait : " + t.getMessage());
+                                resultView.setText("Erreur : " + t.getMessage());
+                            }
+                        });
                     } else {
-                        Log.e(TAG, "Client sans forfait ou problème serveur.");
-                        resultView.setText("Ce client n'a pas de forfait actif.");
+                        Log.e(TAG, "Erreur : Client non trouvé.");
+                        resultView.setText("Client non trouvé. Veuillez vérifier le numéro RFID.");
                     }
                 }
 
                 @Override
-                public void onFailure(Call<ForfaitDTO> call, Throwable t) {
-                    Log.e(TAG, "Erreur lors de la vérification du forfait : " + t.getMessage());
-                    resultView.setText("Erreur : " + t.getMessage());
+                public void onFailure(Call<ClientDTO> call, Throwable t) {
+                    Log.e(TAG, "Erreur lors de la vérification du client : " + t.getMessage());
+                    resultView.setText("Erreur de connexion : " + t.getMessage());
                 }
             });
         } else {
