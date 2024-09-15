@@ -12,7 +12,9 @@ import android.widget.Button;
 import android.widget.EditText;
 import android.widget.TextView;
 import android.widget.Toast;
+
 import androidx.appcompat.app.AppCompatActivity;
+
 import retrofit2.Call;
 import retrofit2.Callback;
 import retrofit2.Response;
@@ -87,7 +89,7 @@ public class BusTicketActivity extends AppCompatActivity {
         }
 
         Retrofit retrofit = new Retrofit.Builder()
-                .baseUrl("http://192.168.1.68:8080/")
+                .baseUrl("http://192.168.1.68:8080/")  // URL de l'API à ajuster
                 .addConverterFactory(GsonConverterFactory.create())
                 .build();
 
@@ -200,14 +202,18 @@ public class BusTicketActivity extends AppCompatActivity {
                 public void onResponse(Call<ForfaitDTO> call, Response<ForfaitDTO> response) {
                     if (response.isSuccessful() && response.body() != null) {
                         ForfaitDTO forfait = response.body();
-                        Log.d(TAG, "Forfait actif jusqu'à : " + forfait.getDateExpiration());
-                        resultView.setText("Forfait actif jusqu'à : " + forfait.getDateExpiration());
-
-                        // Enregistrer les informations localement
-                        dbHelper.saveCardInfo(rfid, "Nom du client", true, forfait.getDateExpiration().toString());
+                        if (forfait.getDateExpiration() != null) {
+                            Log.d(TAG, "Forfait actif jusqu'à : " + forfait.getDateExpiration());
+                            resultView.setText("Forfait actif jusqu'à : " + forfait.getDateExpiration());
+                            // Enregistrer les informations localement
+                            dbHelper.saveCardInfo(rfid, "Nom du client", true, forfait.getDateExpiration().toString());
+                        } else {
+                            Log.d(TAG, "Aucun forfait actif trouvé pour ce client.");
+                            resultView.setText("Aucun forfait actif trouvé pour ce client.");
+                        }
                     } else {
-                        Log.e(TAG, "Impossible de vérifier le statut du forfait.");
-                        resultView.setText("Impossible de vérifier le statut du forfait.");
+                        Log.e(TAG, "Client sans forfait ou problème serveur.");
+                        resultView.setText("Ce client n'a pas de forfait actif.");
                     }
                 }
 
@@ -233,10 +239,10 @@ public class BusTicketActivity extends AppCompatActivity {
                     resultView.setText("Client : " + clientName + "\nForfait actif : " + (forfaitActive ? "Oui" : "Non") +
                             "\nExpiration : " + forfaitExpiration);
                 } else {
-                    resultView.setText("Informations manquantes dans la base de données.");
+                    resultView.setText("Aucun forfait activé pour cette carte.");
                 }
             } else {
-                resultView.setText("Informations non disponibles hors ligne.");
+                resultView.setText("Cette carte n'a jamais été scannée avant ou ne possède aucun forfait activé.");
             }
             cursor.close();
         }
@@ -250,17 +256,17 @@ public class BusTicketActivity extends AppCompatActivity {
                 if (response.isSuccessful() && response.body() != null) {
                     ClientDTO client = response.body();
                     Log.d(TAG, "Client trouvé : " + client.getNom() + " " + client.getPrenom());
-                    resultView.setText(getString(R.string.client_found) + " " + client.getNom() + " " + client.getPrenom());
+                    resultView.setText("Client trouvé : " + client.getNom() + " " + client.getPrenom());
                 } else {
                     Log.e(TAG, "Erreur : Client non trouvé ou problème de serveur.");
-                    resultView.setText(getString(R.string.client_not_found));
+                    resultView.setText("Client non trouvé. Veuillez vérifier le numéro RFID.");
                 }
             }
 
             @Override
             public void onFailure(Call<ClientDTO> call, Throwable t) {
                 Log.e(TAG, "Erreur lors de la vérification du client : " + t.getMessage());
-                resultView.setText("Erreur : " + t.getMessage());
+                resultView.setText("Erreur de connexion : " + t.getMessage());
             }
         });
     }
@@ -276,7 +282,7 @@ public class BusTicketActivity extends AppCompatActivity {
                     resultView.setText("Forfait " + forfaitType + " attribué avec succès.");
                 } else {
                     Log.e(TAG, "Erreur lors de l'attribution du forfait.");
-                    resultView.setText("Erreur lors de l'attribution du forfait.");
+                    resultView.setText("Erreur lors de l'attribution du forfait. Veuillez réessayer.");
                 }
             }
 
