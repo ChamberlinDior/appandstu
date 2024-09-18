@@ -54,17 +54,20 @@
         android:layout_marginTop="16dp"
         android:padding="8dp" />
 
-    <!-- Champ pour entrer le RFID -->
-    <EditText
-        android:id="@+id/rfid_input"
+    <!-- Zone d'affichage du RFID scanné (lecture seule) -->
+    <TextView
+        android:id="@+id/rfid_display"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:hint="Enter RFID"
+        android:text="RFID scanné apparaîtra ici"
         android:padding="10dp"
         android:textSize="16sp"
+        android:textColor="@android:color/black"
         android:background="@android:drawable/edit_text"
         android:layout_below="@id/driver_role_text_view"
-        android:layout_marginTop="16dp" />
+        android:layout_marginTop="16dp"
+        android:focusable="false"
+        android:clickable="false" />
 
     <!-- Zone d'affichage des résultats -->
     <TextView
@@ -75,7 +78,7 @@
         android:text="Result will appear here"
         android:textSize="16sp"
         android:textColor="@android:color/black"
-        android:layout_below="@id/rfid_input"
+        android:layout_below="@id/rfid_display"
         android:layout_marginTop="16dp"
         android:background="@android:drawable/edit_text" />
 
@@ -89,17 +92,6 @@
         android:columnCount="2"
         android:rowCount="3"
         android:layout_gravity="center">
-
-        <!-- Bouton pour vérifier la carte RFID -->
-        <Button
-            android:id="@+id/verify_button"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_columnWeight="1"
-            android:layout_margin="8dp"
-            android:text="Verify"
-            android:backgroundTint="#0F9D58"
-            android:textColor="@android:color/white" />
 
         <!-- Bouton pour attribuer un forfait jour -->
         <Button
@@ -145,4 +137,17 @@
             android:backgroundTint="#0F9D58"
             android:textColor="@android:color/white" />
     </GridLayout>
+
+    <!-- Bouton pour générer le ticket de bus (visible pour les caissiers) -->
+    <Button
+        android:id="@+id/generate_ticket_button"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Générer un ticket de bus"
+        android:backgroundTint="#FF9800"
+        android:textColor="@android:color/white"
+        android:layout_below="@id/grid_layout"
+        android:layout_marginTop="16dp"
+        android:visibility="gone" /> <!-- Initialement masqué, sera affiché pour les caissiers -->
+
 </RelativeLayout>

@@ -38,7 +38,7 @@ public class LoginActivity extends AppCompatActivity {
 
         // Configuration de Retrofit pour le backend
         Retrofit retrofit = new Retrofit.Builder()
-                .baseUrl("http://192.168.1.68:8080/")  // Remplacez cette URL par l'URL de votre backend
+                .baseUrl("http://192.168.1.67:8080/")  // Remplacez cette URL par l'URL de votre backend
                 .addConverterFactory(GsonConverterFactory.create())
                 .build();
 

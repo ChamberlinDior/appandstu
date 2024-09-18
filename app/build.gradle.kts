@@ -30,9 +30,9 @@ android {
         targetCompatibility = JavaVersion.VERSION_1_8
     }
 
-    // Désactiver View Binding
+    // Activer View Binding
     buildFeatures {
-        viewBinding = false
+        viewBinding = true
     }
 
     packagingOptions {
@@ -67,8 +67,8 @@ dependencies {
     implementation("com.google.zxing:core:3.4.0")
 
     // Ajout des dépendances pour Navigation
-    implementation(libs.navigation.fragment)
-    implementation(libs.navigation.ui)
+    implementation("androidx.navigation:navigation-fragment-ktx:2.5.3")
+    implementation("androidx.navigation:navigation-ui-ktx:2.5.3")
 
     // Tests unitaires
     testImplementation("junit:junit:4.13.2")

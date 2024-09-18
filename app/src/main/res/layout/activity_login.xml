@@ -8,7 +8,7 @@
         android:id="@+id/uniqueUserNumber_input"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:hint="Enter Unique User Number"
+        android:hint="Entrer le mot de passe"
         android:inputType="text"
         android:layout_marginTop="24dp" />
 
@@ -17,7 +17,7 @@
         android:id="@+id/name_input"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:hint="Enter Name"
+        android:hint="Entrer le nom d'utilisateur"
         android:inputType="text"
         android:layout_below="@id/uniqueUserNumber_input"
         android:layout_marginTop="16dp" />

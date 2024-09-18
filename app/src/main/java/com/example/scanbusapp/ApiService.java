@@ -21,6 +21,10 @@ public interface ApiService {
     @GET("/api/forfaits/status/{rfid}")
     Call<ForfaitDTO> getForfaitStatus(@Path("rfid") String rfid);
 
+    // Enregistrer la vérification d'un forfait
+    @POST("/api/forfait-verifications")
+    Call<Void> saveForfaitVerification(@Body ForfaitVerificationDTO forfaitVerificationDTO);
+
     // Mise à jour de la destination uniquement via l'adresse MAC du terminal
     @POST("/api/buses/mac/{macAddress}/update-destination")
     Call<Void> updateDestination(@Path("macAddress") String macAddress,
@@ -45,4 +49,8 @@ public interface ApiService {
     // Terminer un trajet
     @POST("/api/buses/mac/{macAddress}/end-trip")
     Call<Void> endTrip(@Path("macAddress") String macAddress);
+
+    // Mise à jour du niveau de batterie du bus
+    @POST("/api/buses/mac/{macAddress}/update-battery")
+    Call<Void> updateBusBatteryLevel(@Path("macAddress") String macAddress, @Query("niveauBatterie") Integer niveauBatterie);
 }

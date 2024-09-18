@@ -2,17 +2,15 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.example.scanbusapp">
 
-    <!-- Permission pour l'accès à Internet -->
+    <!-- Permissions nécessaires -->
     <uses-permission android:name="android.permission.INTERNET" />
-
-    <!-- Permission pour accéder à l'état du réseau -->
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
-
-    <!-- Permission pour utiliser le NFC -->
     <uses-permission android:name="android.permission.NFC" />
 
-    <!-- Déclaration de la fonctionnalité NFC comme requise -->
-    <uses-feature android:name="android.hardware.nfc" android:required="true" />
+    <!-- NFC requis pour l'application -->
+    <uses-feature
+        android:name="android.hardware.nfc"
+        android:required="true" />
 
     <application
         android:allowBackup="true"
@@ -23,13 +21,19 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.ScanBusApp">
 
+        <!-- Déclaration de l'activité TicketActivity pour la génération et l'impression des tickets -->
+        <activity
+            android:name=".TicketActivity"
+            android:exported="false"
+            android:theme="@style/Theme.ScanBusApp" />
+
         <!-- Déclaration de BusTripActivity -->
         <activity
             android:name=".BusTripActivity"
             android:exported="false"
             android:theme="@style/Theme.ScanBusApp" />
 
-        <!-- Déclaration de LoginActivity comme l'activité principale -->
+        <!-- Déclaration de LoginActivity comme activité principale (écran de connexion) -->
         <activity
             android:name=".LoginActivity"
             android:exported="true">
@@ -53,6 +57,7 @@
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
         </activity>
+
     </application>
 
 </manifest>

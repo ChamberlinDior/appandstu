@@ -1,0 +1,36 @@
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:padding="16dp"
+    android:background="@android:color/white">
+
+    <!-- Zone d'affichage des détails du ticket -->
+    <TextView
+        android:id="@+id/ticket_details_view"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Ticket details will be displayed here"
+        android:textSize="18sp"
+        android:textColor="@android:color/black"
+        android:layout_centerHorizontal="true"
+        android:layout_marginBottom="20dp" />
+
+    <!-- ImageView for the ticket image -->
+    <ImageView
+        android:id="@+id/ticket_image_view"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_centerHorizontal="true"
+        android:layout_below="@id/ticket_details_view"
+        android:src="@drawable/active_image" /> <!-- Correct reference to the image -->
+
+    <!-- Bouton pour imprimer le ticket -->
+    <Button
+        android:id="@+id/print_ticket_button"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Imprimer le ticket"
+        android:textSize="16sp"
+        android:layout_below="@id/ticket_image_view"
+        android:layout_centerHorizontal="true" />
+</RelativeLayout>
