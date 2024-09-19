@@ -21,7 +21,7 @@ public interface ApiService {
     @GET("/api/forfaits/status/{rfid}")
     Call<ForfaitDTO> getForfaitStatus(@Path("rfid") String rfid);
 
-    // Enregistrer la vérification d'un forfait
+    // Enregistrer la vérification d'un forfait avec le nom de l'utilisateur
     @POST("/api/forfait-verifications")
     Call<Void> saveForfaitVerification(@Body ForfaitVerificationDTO forfaitVerificationDTO);
 
@@ -50,7 +50,9 @@ public interface ApiService {
     @POST("/api/buses/mac/{macAddress}/end-trip")
     Call<Void> endTrip(@Path("macAddress") String macAddress);
 
-    // Mise à jour du niveau de batterie du bus
+    // Mise à jour du niveau de batterie et état de charge du bus
     @POST("/api/buses/mac/{macAddress}/update-battery")
-    Call<Void> updateBusBatteryLevel(@Path("macAddress") String macAddress, @Query("niveauBatterie") Integer niveauBatterie);
+    Call<Void> updateBusBatteryLevel(@Path("macAddress") String macAddress,
+                                     @Query("niveauBatterie") Integer niveauBatterie,
+                                     @Query("isCharging") boolean isCharging);
 }

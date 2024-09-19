@@ -9,7 +9,9 @@ import android.provider.Settings;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.Toast;
+
 import androidx.appcompat.app.AppCompatActivity;
+
 import retrofit2.Call;
 import retrofit2.Callback;
 import retrofit2.Response;
@@ -38,7 +40,7 @@ public class LoginActivity extends AppCompatActivity {
 
         // Configuration de Retrofit pour le backend
         Retrofit retrofit = new Retrofit.Builder()
-                .baseUrl("http://192.168.1.67:8080/")  // Remplacez cette URL par l'URL de votre backend
+                .baseUrl("http://192.168.1.67:8080/")  // Remplacez cette URL par celle de votre backend
                 .addConverterFactory(GsonConverterFactory.create())
                 .build();
 
@@ -78,52 +80,29 @@ public class LoginActivity extends AppCompatActivity {
         });
     }
 
-    // Méthode pour rediriger l'utilisateur en fonction de son rôle et enregistrer le chauffeur si nécessaire
+    // Méthode pour rediriger l'utilisateur en fonction de son rôle
     private void handleRoleRedirection(UtilisateurDTO utilisateur) {
+        Intent intent;
         if ("chauffeur".equalsIgnoreCase(utilisateur.getRole())) {
-            // Enregistrer le chauffeur avec le rôle et le numéro unique
-            registerChauffeur(utilisateur.getNom(), deviceId, utilisateur.getUniqueUserNumber(), "Libreville");
-
-            // Rediriger vers BusTripActivity si l'utilisateur est un chauffeur
-            Intent intent = new Intent(LoginActivity.this, BusTripActivity.class);
-            intent.putExtra("deviceId", deviceId);
-            intent.putExtra("nom", utilisateur.getNom());  // Ajout du nom du chauffeur
-            intent.putExtra("role", utilisateur.getRole());  // Ajout du rôle du chauffeur
-            startActivity(intent);
+            // Si chauffeur, rediriger vers BusTripActivity
+            intent = new Intent(LoginActivity.this, BusTripActivity.class);
         } else {
-            // Rediriger vers BusTicketActivity pour les autres rôles
-            Intent intent = new Intent(LoginActivity.this, BusTicketActivity.class);
-            intent.putExtra("nom", utilisateur.getNom());
-            intent.putExtra("role", utilisateur.getRole());
-            startActivity(intent);
+            // Sinon, rediriger vers BusTicketActivity pour caissier/contrôleur
+            intent = new Intent(LoginActivity.this, BusTicketActivity.class);
         }
 
-        // Afficher le popup avec l'Android ID
-        showAndroidIdPopup(deviceId);
+        // Passer l'ID Android, le nom et le rôle de l'utilisateur à l'activité suivante
+        intent.putExtra("deviceId", deviceId);
+        intent.putExtra("nom", utilisateur.getNom());
+        intent.putExtra("role", utilisateur.getRole());
+        startActivity(intent);
         finish(); // Fermer l'activité après la connexion
+
+        // Afficher le popup avec l'ID Android
+        showAndroidIdPopup(deviceId);
     }
 
-    // Méthode pour enregistrer le chauffeur avec l'identifiant de l'appareil (Android ID)
-    private void registerChauffeur(String chauffeurNom, String deviceId, String uniqueUserNumber, String lastDestination) {
-        Call<Void> call = apiService.updateChauffeurAndDestination(deviceId, lastDestination, chauffeurNom, uniqueUserNumber);
-        call.enqueue(new Callback<Void>() {
-            @Override
-            public void onResponse(Call<Void> call, Response<Void> response) {
-                if (response.isSuccessful()) {
-                    Toast.makeText(LoginActivity.this, "Chauffeur enregistré avec succès", Toast.LENGTH_SHORT).show();
-                } else {
-                    Toast.makeText(LoginActivity.this, "Erreur lors de l'enregistrement du chauffeur", Toast.LENGTH_SHORT).show();
-                }
-            }
-
-            @Override
-            public void onFailure(Call<Void> call, Throwable t) {
-                Toast.makeText(LoginActivity.this, "Erreur: " + t.getMessage(), Toast.LENGTH_SHORT).show();
-            }
-        });
-    }
-
-    // Méthode pour générer l'ID unique de l'appareil (Android ID)
+    // Méthode pour obtenir l'ID unique de l'appareil (Android ID)
     private String getDeviceId(Context context) {
         return Settings.Secure.getString(context.getContentResolver(), Settings.Secure.ANDROID_ID);
     }
@@ -133,12 +112,7 @@ public class LoginActivity extends AppCompatActivity {
         AlertDialog.Builder builder = new AlertDialog.Builder(LoginActivity.this);
         builder.setTitle("Connexion réussie");
         builder.setMessage("Votre Android ID est : " + androidId);
-        builder.setPositiveButton("OK", new DialogInterface.OnClickListener() {
-            @Override
-            public void onClick(DialogInterface dialog, int which) {
-                dialog.dismiss();  // Fermer le popup
-            }
-        });
+        builder.setPositiveButton("OK", (dialog, which) -> dialog.dismiss());
         AlertDialog dialog = builder.create();
         dialog.show();
     }

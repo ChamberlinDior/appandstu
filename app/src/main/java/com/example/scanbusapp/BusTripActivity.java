@@ -7,12 +7,14 @@ import android.nfc.Tag;
 import android.os.BatteryManager;
 import android.os.Bundle;
 import android.util.Log;
-import android.view.View;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.Spinner;
 import android.widget.TextView;
 import android.widget.Toast;
+import utils.BatteryUtils;
+
+import android.view.View;
 
 import androidx.appcompat.app.AppCompatActivity;
 
@@ -22,13 +24,16 @@ import retrofit2.Response;
 import retrofit2.Retrofit;
 import retrofit2.converter.gson.GsonConverterFactory;
 
+import java.text.SimpleDateFormat;
+import java.util.Locale;
+
 public class BusTripActivity extends AppCompatActivity {
 
     private ApiService apiService;
     private Spinner destinationSpinner;
     private TextView startTimeView, endTimeView, macAddressView, navbarTitle, rfidDisplay, resultView;
     private Button startTripButton, endTripButton, logoutButton, newTripButton;
-    private String macAddress;
+    private String macAddress, userName, userRole;
     private static final String TAG = "BusTripActivity";
     private NfcAdapter mAdapter;
     private PendingIntent mPendingIntent;
@@ -44,8 +49,8 @@ public class BusTripActivity extends AppCompatActivity {
         endTimeView = findViewById(R.id.endTime_view);
         macAddressView = findViewById(R.id.macAddress_view);
         navbarTitle = findViewById(R.id.navbar_title);
-        rfidDisplay = findViewById(R.id.rfid_display);  // Ajout pour afficher le RFID scanné
-        resultView = findViewById(R.id.result_view);  // Ajout pour afficher les résultats du client
+        rfidDisplay = findViewById(R.id.rfid_display);  // Affichage du RFID scanné
+        resultView = findViewById(R.id.result_view);  // Affichage des résultats du client
         startTripButton = findViewById(R.id.startTrip_button);
         endTripButton = findViewById(R.id.endTrip_button);
         newTripButton = findViewById(R.id.newTrip_button);
@@ -56,9 +61,9 @@ public class BusTripActivity extends AppCompatActivity {
         macAddressView.setText("Adresse MAC : " + macAddress);
 
         // Récupérer le nom et le rôle du chauffeur depuis l'intent
-        String chauffeurNom = getIntent().getStringExtra("nom");
-        String chauffeurRole = getIntent().getStringExtra("role");
-        navbarTitle.setText(chauffeurNom + " - " + chauffeurRole);
+        userName = getIntent().getStringExtra("nom");
+        userRole = getIntent().getStringExtra("role");
+        navbarTitle.setText(userName + " - " + userRole);
 
         // Récupérer les destinations définies dans strings.xml
         ArrayAdapter<CharSequence> adapter = ArrayAdapter.createFromResource(this,
@@ -71,7 +76,6 @@ public class BusTripActivity extends AppCompatActivity {
                 .baseUrl("http://192.168.1.67:8080/")
                 .addConverterFactory(GsonConverterFactory.create())
                 .build();
-
         apiService = retrofit.create(ApiService.class);
 
         // Récupérer et envoyer le niveau de batterie au backend
@@ -160,6 +164,7 @@ public class BusTripActivity extends AppCompatActivity {
         return sb.toString();
     }
 
+    // Vérifier le statut du forfait et enregistrer la vérification avec le nom de l'utilisateur
     private void checkForfaitStatus(String rfid) {
         Call<ClientDTO> call = apiService.verifyCard(rfid);
         call.enqueue(new Callback<ClientDTO>() {
@@ -168,6 +173,35 @@ public class BusTripActivity extends AppCompatActivity {
                 if (response.isSuccessful() && response.body() != null) {
                     ClientDTO client = response.body();
                     resultView.setText("Client : " + client.getNom() + " " + client.getPrenom());
+
+                    // Vérifier le statut du forfait
+                    Call<ForfaitDTO> forfaitCall = apiService.getForfaitStatus(rfid);
+                    forfaitCall.enqueue(new Callback<ForfaitDTO>() {
+                        @Override
+                        public void onResponse(Call<ForfaitDTO> call, Response<ForfaitDTO> response) {
+                            if (response.isSuccessful() && response.body() != null) {
+                                ForfaitDTO forfait = response.body();
+                                String statutForfait = forfait.getDateExpiration() != null ?
+                                        "Forfait Actif jusqu'à : " + new SimpleDateFormat("EEEE, d MMMM yyyy", Locale.FRENCH).format(forfait.getDateExpiration()) :
+                                        "Aucun forfait actif";
+
+                                // Mettre à jour le statut du forfait dans la vue
+                                resultView.append("\nStatut Forfait : " + statutForfait);
+
+                                // Enregistrer la vérification dans le backend
+                                ForfaitVerificationDTO verification = new ForfaitVerificationDTO(
+                                        client.getNom(), rfid, statutForfait, macAddress, userRole, userName);
+                                saveForfaitVerification(verification);
+                            } else {
+                                resultView.setText("Aucun forfait actif trouvé.");
+                            }
+                        }
+
+                        @Override
+                        public void onFailure(Call<ForfaitDTO> call, Throwable t) {
+                            resultView.setText("Erreur lors de la vérification du forfait.");
+                        }
+                    });
                 } else {
                     resultView.setText("Client non trouvé.");
                 }
@@ -176,6 +210,26 @@ public class BusTripActivity extends AppCompatActivity {
             @Override
             public void onFailure(Call<ClientDTO> call, Throwable t) {
                 resultView.setText("Erreur de connexion : " + t.getMessage());
+            }
+        });
+    }
+
+    // Enregistrer la vérification du forfait avec le nom de l'utilisateur
+    private void saveForfaitVerification(ForfaitVerificationDTO verification) {
+        Call<Void> verificationCall = apiService.saveForfaitVerification(verification);
+        verificationCall.enqueue(new Callback<Void>() {
+            @Override
+            public void onResponse(Call<Void> call, Response<Void> response) {
+                if (response.isSuccessful()) {
+                    Log.d(TAG, "Vérification du forfait enregistrée avec succès.");
+                } else {
+                    Log.e(TAG, "Erreur lors de l'enregistrement de la vérification.");
+                }
+            }
+
+            @Override
+            public void onFailure(Call<Void> call, Throwable t) {
+                Log.e(TAG, "Erreur lors de l'enregistrement de la vérification.", t);
             }
         });
     }
@@ -190,12 +244,13 @@ public class BusTripActivity extends AppCompatActivity {
                 .show();
     }
 
-    // Méthode pour envoyer le niveau de batterie au backend
+    // Méthode pour envoyer le niveau de batterie et l'état de charge au backend
     private void sendBatteryLevel() {
         BatteryManager bm = (BatteryManager) getSystemService(BATTERY_SERVICE);
         int niveauBatterie = bm.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY);
+        boolean isCharging = BatteryUtils.isCharging(this);
 
-        apiService.updateBusBatteryLevel(macAddress, niveauBatterie).enqueue(new Callback<Void>() {
+        apiService.updateBusBatteryLevel(macAddress, niveauBatterie, isCharging).enqueue(new Callback<Void>() {
             @Override
             public void onResponse(Call<Void> call, Response<Void> response) {
                 if (response.isSuccessful()) {
@@ -264,7 +319,7 @@ public class BusTripActivity extends AppCompatActivity {
     }
 
     private String getFormattedDate() {
-        java.text.SimpleDateFormat sdf = new java.text.SimpleDateFormat("EEEE, d MMMM yyyy HH:mm", java.util.Locale.FRENCH);
+        SimpleDateFormat sdf = new SimpleDateFormat("EEEE, d MMMM yyyy HH:mm", Locale.FRENCH);
         return sdf.format(new java.util.Date());
     }
 }
