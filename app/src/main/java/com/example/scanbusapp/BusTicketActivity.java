@@ -3,6 +3,12 @@ package com.example.scanbusapp;
 import android.app.AlertDialog;
 import android.app.PendingIntent;
 import android.content.Intent;
+import android.database.Cursor;
+import android.net.ConnectivityManager;
+import android.net.Network;
+import android.net.NetworkCapabilities;
+import android.net.NetworkInfo;
+import android.net.NetworkRequest;
 import android.net.Uri;
 import android.nfc.NfcAdapter;
 import android.nfc.Tag;
@@ -18,6 +24,7 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.text.SimpleDateFormat;
+import java.util.List;
 import java.util.Locale;
 
 import retrofit2.Call;
@@ -36,6 +43,9 @@ public class BusTicketActivity extends AppCompatActivity {
     private static final String TAG = "BusTicketActivity";
     private NfcAdapter mAdapter;
     private PendingIntent mPendingIntent;
+    private LocalDatabaseHelper dbHelper;
+    private ConnectivityManager connectivityManager;
+
     private static int ticketCounter = 1; // Compteur de ticket
 
     @Override
@@ -51,13 +61,15 @@ public class BusTicketActivity extends AppCompatActivity {
         // Initialize UI elements
         rfidDisplay = findViewById(R.id.rfid_display);
         resultView = findViewById(R.id.result_view);
-        userInfoDisplay = findViewById(R.id.user_info_display);  // TextView to display cashier info
+        userInfoDisplay = findViewById(R.id.user_info_display);
         forfaitDayButton = findViewById(R.id.forfait_day_button);
         forfaitWeekButton = findViewById(R.id.forfait_week_button);
         forfaitMonthButton = findViewById(R.id.forfait_month_button);
         checkForfaitStatusButton = findViewById(R.id.check_forfait_status_button);
         generateTicketButton = findViewById(R.id.generate_ticket_button);
         logoutButton = findViewById(R.id.logout_button);
+
+        dbHelper = new LocalDatabaseHelper(this);
 
         // Display connected user info
         userInfoDisplay.setText("Connecté en tant que : " + userRole + " - " + userName);
@@ -76,14 +88,15 @@ public class BusTicketActivity extends AppCompatActivity {
                 new Intent(this, getClass()).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP),
                 PendingIntent.FLAG_MUTABLE);
 
+        // Setup network connectivity listener
+        connectivityManager = (ConnectivityManager) getSystemService(CONNECTIVITY_SERVICE);
+        registerNetworkCallback();
+
         // Generate ticket button logic
         generateTicketButton.setOnClickListener(v -> {
             String selectedDestination = "Votre destination"; // This can be retrieved from UI in a real case
-            // Generate ticket content
             String ticketContent = generateTicketContent(selectedDestination, getFormattedDate());
-            // Display ticket in a TextView or similar UI component
             resultView.setText(ticketContent);
-            // Call method to print or save the ticket
             generateAndPrintTicket(ticketContent);
         });
 
@@ -109,6 +122,91 @@ public class BusTicketActivity extends AppCompatActivity {
                 Toast.makeText(BusTicketActivity.this, "Veuillez scanner un numéro RFID", Toast.LENGTH_SHORT).show();
             }
         });
+    }
+
+    // Register for network changes
+    private void registerNetworkCallback() {
+        NetworkRequest networkRequest = new NetworkRequest.Builder()
+                .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+                .build();
+
+        connectivityManager.registerNetworkCallback(networkRequest, new ConnectivityManager.NetworkCallback() {
+            @Override
+            public void onAvailable(Network network) {
+                Log.d(TAG, "Connexion Internet rétablie. Synchronisation des transactions hors ligne...");
+                synchronizeForfaits();
+                synchronizeOfflineTransactions();
+                updateUI();
+            }
+
+            @Override
+            public void onLost(Network network) {
+                Log.d(TAG, "Connexion Internet perdue.");
+            }
+        });
+    }
+
+    // Synchroniser les transactions hors ligne avec le serveur
+    private void synchronizeOfflineTransactions() {
+        Cursor cursor = dbHelper.getOfflineTransactions();
+
+        if (cursor != null && cursor.moveToFirst()) {
+            do {
+                String rfid = cursor.getString(cursor.getColumnIndexOrThrow("rfid"));
+                String forfaitType = cursor.getString(cursor.getColumnIndexOrThrow("forfait_type"));
+
+                ForfaitDTO forfaitDTO = new ForfaitDTO(forfaitType, rfid);
+                Call<Void> call = apiService.assignForfait(forfaitDTO);
+                call.enqueue(new Callback<Void>() {
+                    @Override
+                    public void onResponse(Call<Void> call, Response<Void> response) {
+                        if (response.isSuccessful()) {
+                            Log.d(TAG, "Forfait hors ligne synchronisé avec succès.");
+                            // Supprimer la transaction hors ligne une fois synchronisée
+                            dbHelper.deleteOfflineTransaction(rfid, forfaitType);
+                        } else {
+                            Log.e(TAG, "Erreur lors de la synchronisation du forfait hors ligne.");
+                        }
+                    }
+
+                    @Override
+                    public void onFailure(Call<Void> call, Throwable t) {
+                        Log.e(TAG, "Échec de la synchronisation du forfait hors ligne : " + t.getMessage());
+                    }
+                });
+            } while (cursor.moveToNext());
+        }
+    }
+
+    // Synchroniser les forfaits depuis le serveur
+    private void synchronizeForfaits() {
+        Call<List<ClientDTO>> call = apiService.getAllClients();
+        call.enqueue(new Callback<List<ClientDTO>>() {
+            @Override
+            public void onResponse(Call<List<ClientDTO>> call, Response<List<ClientDTO>> response) {
+                if (response.isSuccessful() && response.body() != null) {
+                    List<ClientDTO> clients = response.body();
+                    for (ClientDTO client : clients) {
+                        dbHelper.saveCardInfo(client.getRfid(), client.getNom(), client.isForfaitActif(), client.getForfaitExpiration());
+                    }
+                    Toast.makeText(BusTicketActivity.this, "Données synchronisées avec succès", Toast.LENGTH_SHORT).show();
+                } else {
+                    Log.e(TAG, "Échec de la synchronisation : " + response.message());
+                }
+            }
+
+            @Override
+            public void onFailure(Call<List<ClientDTO>> call, Throwable t) {
+                Log.e(TAG, "Erreur lors de la synchronisation des forfaits : " + t.getMessage());
+            }
+        });
+    }
+
+    // Méthode pour vérifier la connexion à Internet
+    private boolean isConnected() {
+        ConnectivityManager cm = (ConnectivityManager) getSystemService(CONNECTIVITY_SERVICE);
+        NetworkInfo activeNetwork = cm.getActiveNetworkInfo();
+        return activeNetwork != null && activeNetwork.isConnectedOrConnecting();
     }
 
     @Override
@@ -168,7 +266,6 @@ public class BusTicketActivity extends AppCompatActivity {
             printIntent.setDataAndType(Uri.fromFile(ticketFile), "text/plain");
             printIntent.setFlags(Intent.FLAG_ACTIVITY_NO_HISTORY);
 
-            // Vérifier s'il existe une application d'impression
             if (printIntent.resolveActivity(getPackageManager()) != null) {
                 startActivity(printIntent);
             } else {
@@ -207,26 +304,31 @@ public class BusTicketActivity extends AppCompatActivity {
 
     // Assign forfait to the user
     private void assignForfait(String rfid, String forfaitType) {
-        ForfaitDTO forfaitDTO = new ForfaitDTO(forfaitType, rfid);
-        Call<Void> call = apiService.assignForfait(forfaitDTO);
-        call.enqueue(new Callback<Void>() {
-            @Override
-            public void onResponse(Call<Void> call, Response<Void> response) {
-                if (response.isSuccessful()) {
-                    Log.d(TAG, "Forfait " + forfaitType + " attribué avec succès.");
-                    resultView.setText("Forfait " + forfaitType + " attribué avec succès.");
-                } else {
-                    Log.e(TAG, "Erreur lors de l'attribution du forfait.");
-                    resultView.setText("Erreur lors de l'attribution du forfait. Veuillez réessayer.");
+        if (isConnected()) {
+            ForfaitDTO forfaitDTO = new ForfaitDTO(forfaitType, rfid);
+            Call<Void> call = apiService.assignForfait(forfaitDTO);
+            call.enqueue(new Callback<Void>() {
+                @Override
+                public void onResponse(Call<Void> call, Response<Void> response) {
+                    if (response.isSuccessful()) {
+                        Log.d(TAG, "Forfait " + forfaitType + " attribué avec succès.");
+                        resultView.setText("Forfait " + forfaitType + " attribué avec succès.");
+                    } else {
+                        Log.e(TAG, "Erreur lors de l'attribution du forfait.");
+                        resultView.setText("Erreur lors de l'attribution du forfait. Veuillez réessayer.");
+                    }
                 }
-            }
 
-            @Override
-            public void onFailure(Call<Void> call, Throwable t) {
-                Log.e(TAG, "Erreur lors de l'attribution du forfait : " + t.getMessage());
-                resultView.setText("Erreur : " + t.getMessage());
-            }
-        });
+                @Override
+                public void onFailure(Call<Void> call, Throwable t) {
+                    Log.e(TAG, "Erreur lors de l'attribution du forfait : " + t.getMessage());
+                    resultView.setText("Erreur : " + t.getMessage());
+                }
+            });
+        } else {
+            dbHelper.saveOfflineTransaction(rfid, forfaitType);
+            resultView.setText("Forfait " + forfaitType + " enregistré localement. Synchronisation une fois la connexion rétablie.");
+        }
     }
 
     // Check the forfait status and save the information
@@ -248,12 +350,7 @@ public class BusTicketActivity extends AppCompatActivity {
                                         "Aucun forfait actif";
 
                                 resultView.setText("Client : " + client.getNom() + "\n" + statutForfait);
-
-                                // Save verification in the backend
-                                ForfaitVerificationDTO verification = new ForfaitVerificationDTO(
-                                        client.getNom(), rfid, statutForfait, macAddress, userRole, userName
-                                );
-                                saveForfaitVerification(verification);
+                                dbHelper.saveCardInfo(client.getRfid(), client.getNom(), client.isForfaitActif(), client.getForfaitExpiration());
                             } else {
                                 resultView.setText("Aucun forfait actif trouvé.");
                             }
@@ -274,8 +371,37 @@ public class BusTicketActivity extends AppCompatActivity {
             @Override
             public void onFailure(Call<ClientDTO> call, Throwable t) {
                 Log.e(TAG, "Erreur lors de la vérification du client : " + t.getMessage());
-                resultView.setText("Erreur de connexion : " + t.getMessage());
+                checkForfaitStatusOffline(rfid);
             }
+        });
+    }
+
+    // Check offline status in local SQLite database
+    private void checkForfaitStatusOffline(String rfid) {
+        Cursor cursor = dbHelper.getCardInfo(rfid);
+
+        if (cursor != null && cursor.moveToFirst()) {
+            String clientName = cursor.getString(cursor.getColumnIndexOrThrow("client_name"));
+            boolean forfaitActive = cursor.getInt(cursor.getColumnIndexOrThrow("forfait_active")) == 1;
+            String forfaitExpiration = cursor.getString(cursor.getColumnIndexOrThrow("forfait_expiration"));
+
+            String statutForfait = forfaitActive ?
+                    "Forfait Actif jusqu'à : " + forfaitExpiration :
+                    "Aucun forfait actif";
+
+            resultView.setText("Client : " + clientName + "\n" + statutForfait);
+        } else {
+            resultView.setText("Carte non trouvée. Aucun forfait actif.");
+            Toast.makeText(this, "Cette carte n'a jamais été scannée auparavant.", Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    // Méthode pour rafraîchir l'interface utilisateur sans redémarrer l'activité
+    private void updateUI() {
+        runOnUiThread(() -> {
+            // Mettre à jour uniquement les éléments nécessaires, sans redémarrer l'activité
+            rfidDisplay.setText(""); // Par exemple, vider l'affichage de l'RFID après vérification
+            resultView.setText("");  // Réinitialiser les résultats
         });
     }
 

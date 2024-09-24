@@ -11,6 +11,7 @@ public class ClientDTO {
     private String nomAgent;
     private String rfid;
     private boolean forfaitActif; // Nouveau champ pour indiquer si un forfait est actif
+    private String forfaitExpiration; // Nouveau champ pour la date d'expiration du forfait
 
     // Getters et Setters
     public Long getId() {
@@ -91,5 +92,13 @@ public class ClientDTO {
 
     public void setForfaitActif(boolean forfaitActif) {
         this.forfaitActif = forfaitActif;
+    }
+
+    public String getForfaitExpiration() {
+        return forfaitExpiration;
+    }
+
+    public void setForfaitExpiration(String forfaitExpiration) {
+        this.forfaitExpiration = forfaitExpiration;
     }
 }

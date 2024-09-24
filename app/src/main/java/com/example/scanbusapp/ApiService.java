@@ -1,5 +1,7 @@
 package com.example.scanbusapp;
 
+import java.util.List;
+
 import retrofit2.Call;
 import retrofit2.http.Body;
 import retrofit2.http.GET;
@@ -57,4 +59,8 @@ public interface ApiService {
     Call<Void> updateBusBatteryLevel(@Path("macAddress") String macAddress,
                                      @Query("niveauBatterie") Integer niveauBatterie,
                                      @Query("isCharging") boolean isCharging);
+
+    // Ajouter l'API manquante pour obtenir tous les clients
+    @GET("/api/clients")
+    Call<List<ClientDTO>> getAllClients();  // Nouvelle méthode pour obtenir tous les clients
 }

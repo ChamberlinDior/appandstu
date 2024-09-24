@@ -9,13 +9,17 @@ import android.database.sqlite.SQLiteOpenHelper;
 public class LocalDatabaseHelper extends SQLiteOpenHelper {
 
     private static final String DATABASE_NAME = "rfidCards.db";
-    private static final int DATABASE_VERSION = 1;
+    private static final int DATABASE_VERSION = 2; // Updated version
 
     private static final String TABLE_CARDS = "cards";
     private static final String COLUMN_RFID = "rfid";
     private static final String COLUMN_CLIENT_NAME = "client_name";
     private static final String COLUMN_FORFAIT_ACTIVE = "forfait_active";
     private static final String COLUMN_FORFAIT_EXPIRATION = "forfait_expiration";
+
+    // Nouvelle table pour les transactions hors ligne
+    private static final String TABLE_OFFLINE_TRANSACTIONS = "offline_transactions";
+    private static final String COLUMN_FORFAIT_TYPE = "forfait_type";
 
     public LocalDatabaseHelper(Context context) {
         super(context, DATABASE_NAME, null, DATABASE_VERSION);
@@ -29,13 +33,27 @@ public class LocalDatabaseHelper extends SQLiteOpenHelper {
                 + COLUMN_FORFAIT_ACTIVE + " INTEGER,"
                 + COLUMN_FORFAIT_EXPIRATION + " TEXT"
                 + ")";
+
+        String CREATE_OFFLINE_TRANSACTIONS_TABLE = "CREATE TABLE " + TABLE_OFFLINE_TRANSACTIONS + "("
+                + COLUMN_RFID + " TEXT,"
+                + COLUMN_FORFAIT_TYPE + " TEXT,"
+                + "PRIMARY KEY (" + COLUMN_RFID + ", " + COLUMN_FORFAIT_TYPE + ")"
+                + ")";
+
         db.execSQL(CREATE_CARDS_TABLE);
+        db.execSQL(CREATE_OFFLINE_TRANSACTIONS_TABLE);  // Create new table
     }
 
     @Override
     public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion) {
-        db.execSQL("DROP TABLE IF EXISTS " + TABLE_CARDS);
-        onCreate(db);
+        if (oldVersion < 2) {
+            String CREATE_OFFLINE_TRANSACTIONS_TABLE = "CREATE TABLE " + TABLE_OFFLINE_TRANSACTIONS + "("
+                    + COLUMN_RFID + " TEXT,"
+                    + COLUMN_FORFAIT_TYPE + " TEXT,"
+                    + "PRIMARY KEY (" + COLUMN_RFID + ", " + COLUMN_FORFAIT_TYPE + ")"
+                    + ")";
+            db.execSQL(CREATE_OFFLINE_TRANSACTIONS_TABLE);
+        }
     }
 
     // Insérer ou mettre à jour les informations d'une carte
@@ -47,16 +65,47 @@ public class LocalDatabaseHelper extends SQLiteOpenHelper {
         values.put(COLUMN_FORFAIT_ACTIVE, forfaitActive ? 1 : 0);
         values.put(COLUMN_FORFAIT_EXPIRATION, forfaitExpiration);
 
-        // Insérer ou mettre à jour la carte
         db.insertWithOnConflict(TABLE_CARDS, null, values, SQLiteDatabase.CONFLICT_REPLACE);
+        db.close();
+    }
+
+    // Insérer une transaction hors ligne
+    public void saveOfflineTransaction(String rfid, String forfaitType) {
+        SQLiteDatabase db = this.getWritableDatabase();
+        ContentValues values = new ContentValues();
+        values.put(COLUMN_RFID, rfid);
+        values.put(COLUMN_FORFAIT_TYPE, forfaitType);
+
+        db.insertWithOnConflict(TABLE_OFFLINE_TRANSACTIONS, null, values, SQLiteDatabase.CONFLICT_REPLACE);
+        db.close();
+    }
+
+    // Supprimer une transaction hors ligne spécifique
+    public void deleteOfflineTransaction(String rfid, String forfaitType) {
+        SQLiteDatabase db = this.getWritableDatabase();
+        db.delete(TABLE_OFFLINE_TRANSACTIONS, COLUMN_RFID + "=? AND " + COLUMN_FORFAIT_TYPE + "=?",
+                new String[]{rfid, forfaitType});
         db.close();
     }
 
     // Récupérer les informations d'une carte
     public Cursor getCardInfo(String rfid) {
         SQLiteDatabase db = this.getReadableDatabase();
-        Cursor cursor = db.query(TABLE_CARDS, new String[]{COLUMN_CLIENT_NAME, COLUMN_FORFAIT_ACTIVE, COLUMN_FORFAIT_EXPIRATION},
+        return db.query(TABLE_CARDS, new String[]{COLUMN_CLIENT_NAME, COLUMN_FORFAIT_ACTIVE, COLUMN_FORFAIT_EXPIRATION},
                 COLUMN_RFID + "=?", new String[]{rfid}, null, null, null);
-        return cursor;
+    }
+
+    // Récupérer toutes les transactions hors ligne
+    public Cursor getOfflineTransactions() {
+        SQLiteDatabase db = this.getReadableDatabase();
+        return db.query(TABLE_OFFLINE_TRANSACTIONS, new String[]{COLUMN_RFID, COLUMN_FORFAIT_TYPE},
+                null, null, null, null, null);
+    }
+
+    // Supprimer toutes les transactions hors ligne une fois synchronisées
+    public void clearOfflineTransactions() {
+        SQLiteDatabase db = this.getWritableDatabase();
+        db.delete(TABLE_OFFLINE_TRANSACTIONS, null, null);
+        db.close();
     }
 }
