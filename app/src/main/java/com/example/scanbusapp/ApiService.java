@@ -34,17 +34,19 @@ public interface ApiService {
     @GET("/api/utilisateurs/unique/{uniqueUserNumber}")
     Call<UtilisateurDTO> getUtilisateurByUniqueUserNumber(@Path("uniqueUserNumber") String uniqueUserNumber);
 
-    // Enregistrer un chauffeur avec l'identifiant unique de l'appareil
+    // Enregistrer un chauffeur avec l'identifiant unique de l'appareil et les informations du chauffeur
     @POST("/api/buses/mac/{macAddress}/update-chauffeur-destination")
     Call<Void> updateChauffeurAndDestination(@Path("macAddress") String macAddress,
                                              @Query("lastDestination") String lastDestination,
                                              @Query("chauffeurNom") String chauffeurNom,
                                              @Query("chauffeurUniqueNumber") String chauffeurUniqueNumber);
 
-    // Démarrer un trajet
+    // Démarrer un trajet avec le nom et le numéro unique du chauffeur
     @POST("/api/buses/mac/{macAddress}/start-trip")
     Call<Void> startTrip(@Path("macAddress") String macAddress,
-                         @Query("lastDestination") String lastDestination);
+                         @Query("lastDestination") String lastDestination,
+                         @Query("chauffeurNom") String chauffeurNom,
+                         @Query("chauffeurUniqueNumber") String chauffeurUniqueNumber);
 
     // Terminer un trajet
     @POST("/api/buses/mac/{macAddress}/end-trip")

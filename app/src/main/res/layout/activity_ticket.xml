@@ -4,7 +4,7 @@
     android:padding="16dp"
     android:background="@android:color/white">
 
-    <!-- Zone d'affichage des détails du ticket -->
+    <!-- Ticket Details TextView -->
     <TextView
         android:id="@+id/ticket_details_view"
         android:layout_width="wrap_content"
@@ -15,16 +15,16 @@
         android:layout_centerHorizontal="true"
         android:layout_marginBottom="20dp" />
 
-    <!-- ImageView for the ticket image -->
+    <!-- Ticket Image View -->
     <ImageView
         android:id="@+id/ticket_image_view"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_centerHorizontal="true"
         android:layout_below="@id/ticket_details_view"
-        android:src="@drawable/active_image" /> <!-- Correct reference to the image -->
+        android:src="@drawable/active_image" />
 
-    <!-- Bouton pour imprimer le ticket -->
+    <!-- Single Print Ticket Button -->
     <Button
         android:id="@+id/print_ticket_button"
         android:layout_width="wrap_content"

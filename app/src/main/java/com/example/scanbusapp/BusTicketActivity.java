@@ -3,6 +3,7 @@ package com.example.scanbusapp;
 import android.app.AlertDialog;
 import android.app.PendingIntent;
 import android.content.Intent;
+import android.net.Uri;
 import android.nfc.NfcAdapter;
 import android.nfc.Tag;
 import android.os.Bundle;
@@ -13,8 +14,10 @@ import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
 
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
 import java.text.SimpleDateFormat;
-import java.util.Date;
 import java.util.Locale;
 
 import retrofit2.Call;
@@ -27,47 +30,64 @@ public class BusTicketActivity extends AppCompatActivity {
 
     private ApiService apiService;
     private TextView rfidDisplay;
-    private TextView resultView;
-    private Button forfaitDayButton, forfaitWeekButton, forfaitMonthButton, checkForfaitStatusButton, logoutButton;
+    private TextView resultView, userInfoDisplay, ticketDisplay;
+    private Button forfaitDayButton, forfaitWeekButton, forfaitMonthButton, checkForfaitStatusButton, generateTicketButton, logoutButton;
     private String macAddress, userName, userRole;
     private static final String TAG = "BusTicketActivity";
     private NfcAdapter mAdapter;
     private PendingIntent mPendingIntent;
+    private static int ticketCounter = 1; // Compteur de ticket
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_bus_ticket);
 
-        // Récupérer les informations utilisateur depuis l'intent
+        // Retrieve user information from intent
         userName = getIntent().getStringExtra("nom");
         userRole = getIntent().getStringExtra("role");
         macAddress = getIntent().getStringExtra("deviceId");
 
-        // Initialisation des éléments UI
+        // Initialize UI elements
         rfidDisplay = findViewById(R.id.rfid_display);
         resultView = findViewById(R.id.result_view);
+        userInfoDisplay = findViewById(R.id.user_info_display);  // TextView to display cashier info
         forfaitDayButton = findViewById(R.id.forfait_day_button);
         forfaitWeekButton = findViewById(R.id.forfait_week_button);
         forfaitMonthButton = findViewById(R.id.forfait_month_button);
         checkForfaitStatusButton = findViewById(R.id.check_forfait_status_button);
+        generateTicketButton = findViewById(R.id.generate_ticket_button);
         logoutButton = findViewById(R.id.logout_button);
 
-        // Configuration de Retrofit pour les appels API
+        // Display connected user info
+        userInfoDisplay.setText("Connecté en tant que : " + userRole + " - " + userName);
+
+        // Setup Retrofit for API calls
         Retrofit retrofit = new Retrofit.Builder()
-                .baseUrl("http://192.168.1.67:8080/")
+                .baseUrl("http://51.178.42.116:8089/")
                 .addConverterFactory(GsonConverterFactory.create())
                 .build();
 
         apiService = retrofit.create(ApiService.class);
 
-        // Configuration du NFC
+        // NFC Setup
         mAdapter = NfcAdapter.getDefaultAdapter(this);
         mPendingIntent = PendingIntent.getActivity(this, 0,
                 new Intent(this, getClass()).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP),
                 PendingIntent.FLAG_MUTABLE);
 
-        // Gestion du bouton de déconnexion
+        // Generate ticket button logic
+        generateTicketButton.setOnClickListener(v -> {
+            String selectedDestination = "Votre destination"; // This can be retrieved from UI in a real case
+            // Generate ticket content
+            String ticketContent = generateTicketContent(selectedDestination, getFormattedDate());
+            // Display ticket in a TextView or similar UI component
+            resultView.setText(ticketContent);
+            // Call method to print or save the ticket
+            generateAndPrintTicket(ticketContent);
+        });
+
+        // Logout button logic
         logoutButton.setOnClickListener(v -> {
             Toast.makeText(BusTicketActivity.this, "Déconnexion réussie", Toast.LENGTH_SHORT).show();
             Intent intent = new Intent(BusTicketActivity.this, LoginActivity.class);
@@ -75,12 +95,12 @@ public class BusTicketActivity extends AppCompatActivity {
             finish();
         });
 
-        // Gestion des boutons de forfaits
+        // Forfait buttons management
         forfaitDayButton.setOnClickListener(v -> showConfirmationDialog("jour"));
         forfaitWeekButton.setOnClickListener(v -> showConfirmationDialog("semaine"));
         forfaitMonthButton.setOnClickListener(v -> showConfirmationDialog("mois"));
 
-        // Vérifier le statut du forfait via le bouton dédié
+        // Check forfait status via the dedicated button
         checkForfaitStatusButton.setOnClickListener(v -> {
             String rfid = rfidDisplay.getText().toString();
             if (!rfid.isEmpty()) {
@@ -127,7 +147,45 @@ public class BusTicketActivity extends AppCompatActivity {
         return sb.toString();
     }
 
-    // Afficher une boîte de dialogue pour confirmer l'attribution du forfait
+    // Méthode pour générer le contenu du ticket
+    private String generateTicketContent(String destination, String date) {
+        return "Nom : Trans'urb\n" +
+                "Date : " + date + "\n" +
+                "Ticket : 0" + ticketCounter++ + "\n" +
+                "Destination : " + destination + "\n";
+    }
+
+    // Méthode pour générer et imprimer/sauvegarder le ticket
+    private void generateAndPrintTicket(String ticketContent) {
+        File ticketFile = new File(getExternalFilesDir(null), "ticket_bus_" + ticketCounter + ".txt");
+
+        try (FileOutputStream fos = new FileOutputStream(ticketFile)) {
+            fos.write(ticketContent.getBytes());
+            fos.flush();
+
+            // Intent pour imprimer ou afficher le fichier
+            Intent printIntent = new Intent(Intent.ACTION_VIEW);
+            printIntent.setDataAndType(Uri.fromFile(ticketFile), "text/plain");
+            printIntent.setFlags(Intent.FLAG_ACTIVITY_NO_HISTORY);
+
+            // Vérifier s'il existe une application d'impression
+            if (printIntent.resolveActivity(getPackageManager()) != null) {
+                startActivity(printIntent);
+            } else {
+                Toast.makeText(this, "Pas d'application pour imprimer. Ticket enregistré localement.", Toast.LENGTH_SHORT).show();
+            }
+        } catch (IOException e) {
+            Log.e(TAG, "Erreur lors de la génération du ticket", e);
+            Toast.makeText(this, "Erreur lors de la génération du ticket", Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    private String getFormattedDate() {
+        SimpleDateFormat sdf = new SimpleDateFormat("EEEE, d MMMM yyyy HH:mm", Locale.FRENCH);
+        return sdf.format(new java.util.Date());
+    }
+
+    // Display a dialog to confirm the forfait activation
     private void showConfirmationDialog(String forfaitType) {
         String rfid = rfidDisplay.getText().toString();
         if (rfid.isEmpty()) {
@@ -147,7 +205,7 @@ public class BusTicketActivity extends AppCompatActivity {
         alert.show();
     }
 
-    // Attribuer un forfait à l'utilisateur
+    // Assign forfait to the user
     private void assignForfait(String rfid, String forfaitType) {
         ForfaitDTO forfaitDTO = new ForfaitDTO(forfaitType, rfid);
         Call<Void> call = apiService.assignForfait(forfaitDTO);
@@ -171,7 +229,7 @@ public class BusTicketActivity extends AppCompatActivity {
         });
     }
 
-    // Vérification du forfait et enregistrement des informations
+    // Check the forfait status and save the information
     private void checkForfaitStatus(String rfid) {
         Call<ClientDTO> call = apiService.verifyCard(rfid);
         call.enqueue(new Callback<ClientDTO>() {
@@ -191,7 +249,7 @@ public class BusTicketActivity extends AppCompatActivity {
 
                                 resultView.setText("Client : " + client.getNom() + "\n" + statutForfait);
 
-                                // Enregistrement de la vérification dans le backend
+                                // Save verification in the backend
                                 ForfaitVerificationDTO verification = new ForfaitVerificationDTO(
                                         client.getNom(), rfid, statutForfait, macAddress, userRole, userName
                                 );
@@ -221,7 +279,7 @@ public class BusTicketActivity extends AppCompatActivity {
         });
     }
 
-    // Enregistrer la vérification du forfait avec le nom de l'utilisateur
+    // Save forfait verification with the user's name
     private void saveForfaitVerification(ForfaitVerificationDTO verification) {
         Call<Void> verificationCall = apiService.saveForfaitVerification(verification);
         verificationCall.enqueue(new Callback<Void>() {

@@ -33,7 +33,7 @@ public class BusTripActivity extends AppCompatActivity {
     private Spinner destinationSpinner;
     private TextView startTimeView, endTimeView, macAddressView, navbarTitle, rfidDisplay, resultView;
     private Button startTripButton, endTripButton, logoutButton, newTripButton;
-    private String macAddress, userName, userRole;
+    private String macAddress, userName, userRole, chauffeurUniqueNumber;
     private static final String TAG = "BusTripActivity";
     private NfcAdapter mAdapter;
     private PendingIntent mPendingIntent;
@@ -60,10 +60,16 @@ public class BusTripActivity extends AppCompatActivity {
         macAddress = getIntent().getStringExtra("deviceId");
         macAddressView.setText("Adresse MAC : " + macAddress);
 
-        // Récupérer le nom et le rôle du chauffeur depuis l'intent
+        // Récupérer le nom, le rôle et le numéro unique du chauffeur depuis l'intent
         userName = getIntent().getStringExtra("nom");
         userRole = getIntent().getStringExtra("role");
-        navbarTitle.setText(userName + " - " + userRole);
+        chauffeurUniqueNumber = getIntent().getStringExtra("chauffeurUniqueNumber");
+
+        // Vérifier si le rôle n'est pas nul et l'afficher correctement
+        String roleDisplay = (userRole != null) ? userRole : "Rôle non défini";
+
+        // Afficher le nom, le rôle et le numéro unique dans la navbar
+        navbarTitle.setText(userName + " - " + roleDisplay + " - " + chauffeurUniqueNumber);
 
         // Récupérer les destinations définies dans strings.xml
         ArrayAdapter<CharSequence> adapter = ArrayAdapter.createFromResource(this,
@@ -73,7 +79,7 @@ public class BusTripActivity extends AppCompatActivity {
 
         // Configuration de Retrofit pour interagir avec le backend
         Retrofit retrofit = new Retrofit.Builder()
-                .baseUrl("http://192.168.1.67:8080/")
+                .baseUrl("http://51.178.42.116:8089/")
                 .addConverterFactory(GsonConverterFactory.create())
                 .build();
         apiService = retrofit.create(ApiService.class);
@@ -88,7 +94,7 @@ public class BusTripActivity extends AppCompatActivity {
                 () -> {
                     String selectedDestination = destinationSpinner.getSelectedItem().toString();
                     if (!selectedDestination.isEmpty()) {
-                        startTrip(macAddress, selectedDestination);
+                        startTrip(macAddress, selectedDestination, userName, chauffeurUniqueNumber);
                     } else {
                         Toast.makeText(BusTripActivity.this, "Veuillez sélectionner une destination", Toast.LENGTH_SHORT).show();
                     }
@@ -267,8 +273,8 @@ public class BusTripActivity extends AppCompatActivity {
         });
     }
 
-    private void startTrip(String macAddress, String lastDestination) {
-        Call<Void> call = apiService.startTrip(macAddress, lastDestination);
+    private void startTrip(String macAddress, String lastDestination, String chauffeurNom, String chauffeurUniqueNumber) {
+        Call<Void> call = apiService.startTrip(macAddress, lastDestination, chauffeurNom, chauffeurUniqueNumber);
         call.enqueue(new Callback<Void>() {
             @Override
             public void onResponse(Call<Void> call, Response<Void> response) {

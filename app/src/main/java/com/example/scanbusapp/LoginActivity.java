@@ -2,10 +2,10 @@ package com.example.scanbusapp;
 
 import android.app.AlertDialog;
 import android.content.Context;
-import android.content.DialogInterface;
 import android.content.Intent;
 import android.os.Bundle;
 import android.provider.Settings;
+import android.util.Log;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.Toast;
@@ -40,7 +40,7 @@ public class LoginActivity extends AppCompatActivity {
 
         // Configuration de Retrofit pour le backend
         Retrofit retrofit = new Retrofit.Builder()
-                .baseUrl("http://192.168.1.67:8080/")  // Remplacez cette URL par celle de votre backend
+                .baseUrl("http://51.178.42.116:8089/")  // URL du backend
                 .addConverterFactory(GsonConverterFactory.create())
                 .build();
 
@@ -86,20 +86,46 @@ public class LoginActivity extends AppCompatActivity {
         if ("chauffeur".equalsIgnoreCase(utilisateur.getRole())) {
             // Si chauffeur, rediriger vers BusTripActivity
             intent = new Intent(LoginActivity.this, BusTripActivity.class);
-        } else {
-            // Sinon, rediriger vers BusTicketActivity pour caissier/contrôleur
-            intent = new Intent(LoginActivity.this, BusTicketActivity.class);
-        }
+            // Passer l'ID Android, le nom et le numéro unique du chauffeur à l'activité suivante
+            intent.putExtra("deviceId", deviceId);
+            intent.putExtra("nom", utilisateur.getNom());
+            intent.putExtra("role", utilisateur.getRole());
+            intent.putExtra("chauffeurUniqueNumber", utilisateur.getUniqueUserNumber());
 
-        // Passer l'ID Android, le nom et le rôle de l'utilisateur à l'activité suivante
-        intent.putExtra("deviceId", deviceId);
-        intent.putExtra("nom", utilisateur.getNom());
-        intent.putExtra("role", utilisateur.getRole());
+            // Enregistrer les informations du chauffeur dans la base de données (table Bus)
+            registerChauffeurToBusTable(utilisateur.getNom(), utilisateur.getUniqueUserNumber(), deviceId);
+        } else {
+            // Sinon, rediriger vers une autre activité (par exemple, BusTicketActivity pour les caissiers)
+            intent = new Intent(LoginActivity.this, BusTicketActivity.class);
+            intent.putExtra("deviceId", deviceId);
+            intent.putExtra("nom", utilisateur.getNom());
+            intent.putExtra("role", utilisateur.getRole());
+        }
         startActivity(intent);
         finish(); // Fermer l'activité après la connexion
 
         // Afficher le popup avec l'ID Android
         showAndroidIdPopup(deviceId);
+    }
+
+    // Méthode pour enregistrer le chauffeur dans la table Bus
+    private void registerChauffeurToBusTable(String chauffeurNom, String chauffeurUniqueNumber, String macAddress) {
+        Call<Void> call = apiService.updateChauffeurAndDestination(macAddress, "Destination par défaut", chauffeurNom, chauffeurUniqueNumber);
+        call.enqueue(new Callback<Void>() {
+            @Override
+            public void onResponse(Call<Void> call, Response<Void> response) {
+                if (response.isSuccessful()) {
+                    Log.d("LoginActivity", "Chauffeur enregistré avec succès dans la table Bus.");
+                } else {
+                    Log.e("LoginActivity", "Erreur lors de l'enregistrement du chauffeur.");
+                }
+            }
+
+            @Override
+            public void onFailure(Call<Void> call, Throwable t) {
+                Log.e("LoginActivity", "Erreur lors de l'enregistrement du chauffeur : " + t.getMessage());
+            }
+        });
     }
 
     // Méthode pour obtenir l'ID unique de l'appareil (Android ID)

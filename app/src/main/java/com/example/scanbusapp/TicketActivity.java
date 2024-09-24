@@ -43,11 +43,11 @@ public class TicketActivity extends AppCompatActivity {
         ticketImageView.setImageResource(R.drawable.active_image);  // Correct image reference
 
         // Print or save the ticket
-        printTicketButton.setOnClickListener(v -> generateAndSaveTicket(ticketDetails));
+        printTicketButton.setOnClickListener(v -> generateAndPrintTicket(ticketDetails));
     }
 
     // Method to generate and print/save the ticket
-    private void generateAndSaveTicket(String ticketContent) {
+    private void generateAndPrintTicket(String ticketContent) {
         File ticketFile = new File(getExternalFilesDir(null), "ticket_bus.txt");
         try (FileOutputStream fos = new FileOutputStream(ticketFile)) {
             fos.write(ticketContent.getBytes());

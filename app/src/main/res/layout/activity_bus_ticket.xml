@@ -4,55 +4,18 @@
     android:padding="16dp"
     android:background="@android:color/white">
 
-    <!-- Affichage du profil utilisateur -->
+    <!-- Affichage des informations de l'utilisateur connecté (rôle et nom) -->
     <TextView
-        android:id="@+id/profile_text_view"
+        android:id="@+id/user_info_display"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Profil :"
+        android:text="Utilisateur connecté :"
         android:textSize="18sp"
         android:textColor="@android:color/black"
         android:layout_alignParentTop="true"
         android:layout_marginBottom="8dp"
         android:layout_marginStart="16dp"
         android:textStyle="bold" />
-
-    <!-- Affichage du nom du chauffeur -->
-    <TextView
-        android:id="@+id/driver_name_text_view"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="Chauffeur :"
-        android:textSize="16sp"
-        android:textColor="@android:color/black"
-        android:layout_below="@id/profile_text_view"
-        android:layout_marginTop="4dp"
-        android:layout_marginStart="16dp" />
-
-    <!-- Affichage du rôle du chauffeur -->
-    <TextView
-        android:id="@+id/driver_role_text_view"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="Rôle :"
-        android:textSize="16sp"
-        android:textColor="@android:color/black"
-        android:layout_below="@id/driver_name_text_view"
-        android:layout_marginTop="4dp"
-        android:layout_marginStart="16dp" />
-
-    <!-- Bouton de déconnexion -->
-    <Button
-        android:id="@+id/logout_button"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="Déconnexion"
-        android:textColor="#FFFFFF"
-        android:background="#F44336"
-        android:layout_alignParentEnd="true"
-        android:layout_alignParentRight="true"
-        android:layout_marginTop="16dp"
-        android:padding="8dp" />
 
     <!-- Zone d'affichage du RFID scanné (lecture seule) -->
     <TextView
@@ -64,7 +27,7 @@
         android:textSize="16sp"
         android:textColor="@android:color/black"
         android:background="@android:drawable/edit_text"
-        android:layout_below="@id/driver_role_text_view"
+        android:layout_below="@id/user_info_display"
         android:layout_marginTop="16dp"
         android:focusable="false"
         android:clickable="false" />
@@ -75,7 +38,7 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:padding="10dp"
-        android:text="Result will appear here"
+        android:text="Résultat affiché ici"
         android:textSize="16sp"
         android:textColor="@android:color/black"
         android:layout_below="@id/rfid_display"
@@ -90,7 +53,7 @@
         android:layout_below="@id/result_view"
         android:layout_marginTop="16dp"
         android:columnCount="2"
-        android:rowCount="3"
+        android:rowCount="2"
         android:layout_gravity="center">
 
         <!-- Bouton pour attribuer un forfait jour -->
@@ -148,6 +111,19 @@
         android:textColor="@android:color/white"
         android:layout_below="@id/grid_layout"
         android:layout_marginTop="16dp"
-        android:visibility="gone" /> <!-- Initialement masqué, sera affiché pour les caissiers -->
+        android:visibility="visible" /> <!-- Affiché pour les caissiers -->
+
+    <!-- Bouton de déconnexion -->
+    <Button
+        android:id="@+id/logout_button"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Déconnexion"
+        android:textColor="#FFFFFF"
+        android:background="#F44336"
+        android:layout_alignParentEnd="true"
+        android:layout_alignParentRight="true"
+        android:layout_marginTop="16dp"
+        android:padding="8dp" />
 
 </RelativeLayout>
