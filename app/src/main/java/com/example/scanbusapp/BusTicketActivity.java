@@ -14,6 +14,7 @@ import android.nfc.NfcAdapter;
 import android.nfc.Tag;
 import android.os.Bundle;
 import android.util.Log;
+import android.view.View;
 import android.widget.Button;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -73,6 +74,13 @@ public class BusTicketActivity extends AppCompatActivity {
 
         // Display connected user info
         userInfoDisplay.setText("Connecté en tant que : " + userRole + " - " + userName);
+
+        // Masquer les boutons de forfait si l'utilisateur a le rôle de 'controleur'
+        if ("controleur".equalsIgnoreCase(userRole)) {
+            forfaitDayButton.setVisibility(View.GONE);
+            forfaitWeekButton.setVisibility(View.GONE);
+            forfaitMonthButton.setVisibility(View.GONE);
+        }
 
         // Setup Retrofit for API calls
         Retrofit retrofit = new Retrofit.Builder()
