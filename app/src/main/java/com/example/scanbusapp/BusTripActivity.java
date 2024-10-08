@@ -6,6 +6,7 @@ import android.nfc.NfcAdapter;
 import android.nfc.Tag;
 import android.os.BatteryManager;
 import android.os.Bundle;
+import android.provider.Settings;
 import android.util.Log;
 import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
@@ -26,16 +27,17 @@ import utils.BatteryUtils;
 
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.List;
 import java.util.Locale;
 
 public class BusTripActivity extends AppCompatActivity {
 
     private ApiService apiService;
     private Spinner destinationSpinner;
-    private TextView startTimeView, endTimeView, macAddressView, navbarTitle, rfidDisplay, resultView;
+    private TextView startTimeView, endTimeView, macAddressView, navbarTitle;
     private ListView scannedCardsListView;
     private Button startTripButton, endTripButton, logoutButton, newTripButton;
-    private ImageView destinationArrow;  // Flèche pour indiquer la sélection de destination
+    private ImageView destinationArrow;
     private String macAddress, userName, userRole, chauffeurUniqueNumber;
     private ArrayList<String> scannedCards;
     private ArrayAdapter<String> cardsAdapter;
@@ -54,14 +56,12 @@ public class BusTripActivity extends AppCompatActivity {
         endTimeView = findViewById(R.id.endTime_view);
         macAddressView = findViewById(R.id.macAddress_view);
         navbarTitle = findViewById(R.id.navbar_title);
-        rfidDisplay = findViewById(R.id.rfid_display);
-        resultView = findViewById(R.id.result_view);
         scannedCardsListView = findViewById(R.id.scanned_cards_list);
         startTripButton = findViewById(R.id.startTrip_button);
         endTripButton = findViewById(R.id.endTrip_button);
         newTripButton = findViewById(R.id.newTrip_button);
         logoutButton = findViewById(R.id.logout_button);
-        destinationArrow = findViewById(R.id.destination_arrow); // ImageView pour la flèche d'indication
+        destinationArrow = findViewById(R.id.destination_arrow);
 
         // Récupérer l'ID Android (adresse MAC) du terminal
         macAddress = getIntent().getStringExtra("deviceId");
@@ -74,18 +74,10 @@ public class BusTripActivity extends AppCompatActivity {
 
         navbarTitle.setText(userName + " - " + (userRole != null ? userRole : "Rôle non défini") + " - " + chauffeurUniqueNumber);
 
-        // Adapter pour la liste des destinations
-        ArrayAdapter<CharSequence> adapter = ArrayAdapter.createFromResource(this,
-                R.array.destination_array, android.R.layout.simple_spinner_item);
-        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
-        destinationSpinner.setAdapter(adapter);
-
         // Masquer les vues inutiles au départ
-        destinationSpinner.setVisibility(View.GONE);
+        startTripButton.setVisibility(View.GONE); // Masquer le bouton jusqu'à sélection de destination
         endTripButton.setVisibility(View.GONE);
         newTripButton.setVisibility(View.GONE);
-        rfidDisplay.setVisibility(View.GONE);
-        resultView.setVisibility(View.GONE);
         scannedCardsListView.setVisibility(View.GONE);
         destinationArrow.setVisibility(View.GONE);  // Masquer la flèche
 
@@ -96,40 +88,51 @@ public class BusTripActivity extends AppCompatActivity {
 
         // Configuration de Retrofit pour interagir avec le backend
         Retrofit retrofit = new Retrofit.Builder()
-                .baseUrl("http://51.178.42.116:8089/")
+                .baseUrl("http://51.178.42.116:8085/")
                 .addConverterFactory(GsonConverterFactory.create())
                 .build();
         apiService = retrofit.create(ApiService.class);
 
+        // Récupérer les destinations depuis la base de données
+        fetchDestinations();
+
         // Récupérer et envoyer le niveau de batterie au backend
         sendBatteryLevel();
 
-        // Démarrer un trajet
-        startTripButton.setOnClickListener(v -> showConfirmationDialog(
-                "Démarrer le trajet",
-                "Voulez-vous vraiment démarrer ce trajet ?",
-                () -> {
-                    destinationSpinner.setVisibility(View.VISIBLE);
-                    destinationArrow.setVisibility(View.VISIBLE); // Afficher la flèche
-                    startTripButton.setVisibility(View.GONE);
-                    startTimeView.setText("Début du trajet : " + getFormattedDate());
-                }
-        ));
-
-        // Sélectionner une destination et activer le scanner
+        // Sélectionner une destination
         destinationSpinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
             @Override
             public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
                 if (position != 0) {  // Une destination est sélectionnée
-                    rfidDisplay.setVisibility(View.VISIBLE);
-                    scannedCardsListView.setVisibility(View.VISIBLE);
-                    endTripButton.setVisibility(View.VISIBLE);
+                    scannedCardsListView.setVisibility(View.VISIBLE); // Montrer le tableau
+                    startTripButton.setVisibility(View.VISIBLE); // Montrer le bouton pour démarrer le trajet
                     destinationArrow.setVisibility(View.GONE);  // Masquer la flèche après sélection
                 }
             }
 
             @Override
             public void onNothingSelected(AdapterView<?> parent) {
+                startTripButton.setVisibility(View.GONE);  // Cacher le bouton si aucune destination n'est sélectionnée
+            }
+        });
+
+        // Démarrer un trajet
+        startTripButton.setOnClickListener(v -> {
+            String selectedDestination = destinationSpinner.getSelectedItem().toString();
+            if (!selectedDestination.equals("Sélectionner une destination")) {
+                showConfirmationDialog(
+                        "Démarrer le trajet",
+                        "Voulez-vous vraiment démarrer ce trajet avec la destination : " + selectedDestination + " ?",
+                        () -> {
+                            startTripButton.setVisibility(View.GONE);
+                            startTimeView.setText("Début du trajet : " + getFormattedDate());
+                            endTripButton.setVisibility(View.VISIBLE); // Montrer le bouton pour terminer le trajet
+                            // Appel API pour démarrer le trajet
+                            startTrip(macAddress, selectedDestination, userName, chauffeurUniqueNumber);
+                        }
+                );
+            } else {
+                Toast.makeText(BusTripActivity.this, "Veuillez sélectionner une destination", Toast.LENGTH_SHORT).show();
             }
         });
 
@@ -152,7 +155,7 @@ public class BusTripActivity extends AppCompatActivity {
         // Initialisation du NFC
         mAdapter = NfcAdapter.getDefaultAdapter(this);
         if (mAdapter == null) {
-            resultView.setText("Le NFC n'est pas supporté sur cet appareil.");
+            Toast.makeText(this, "Le NFC n'est pas supporté sur cet appareil.", Toast.LENGTH_SHORT).show();
             return;
         }
 
@@ -183,9 +186,14 @@ public class BusTripActivity extends AppCompatActivity {
         Tag tag = intent.getParcelableExtra(NfcAdapter.EXTRA_TAG);
         if (tag != null) {
             String rfid = bytesToHex(tag.getId());
-            rfidDisplay.setText(rfid);
             Log.d(TAG, "RFID scanné : " + rfid);
-            checkForfaitStatusOffline(rfid);
+
+            // Effacer les anciens résultats avant d'ajouter le nouveau scan
+            scannedCards.clear();
+            cardsAdapter.notifyDataSetChanged();
+
+            // Vérifier le statut de la carte
+            checkForfaitStatus(rfid);
         }
     }
 
@@ -197,8 +205,7 @@ public class BusTripActivity extends AppCompatActivity {
         return sb.toString();
     }
 
-    // Méthode qui tente d'envoyer les données en ligne et, en cas d'échec, affiche les données en mode hors ligne
-    private void checkForfaitStatusOffline(String rfid) {
+    private void checkForfaitStatus(String rfid) {
         Call<ClientDTO> call = apiService.verifyCard(rfid);
         call.enqueue(new Callback<ClientDTO>() {
             @Override
@@ -207,7 +214,7 @@ public class BusTripActivity extends AppCompatActivity {
                     ClientDTO client = response.body();
                     fetchForfaitStatus(rfid, client.getNom());
                 } else {
-                    displayOfflineResult(rfid, "Client non trouvé");
+                    displayResult(rfid, "Client non trouvé");
                 }
             }
 
@@ -228,41 +235,39 @@ public class BusTripActivity extends AppCompatActivity {
                     String statutForfait = forfait.getDateExpiration() != null ?
                             "Forfait Actif jusqu'à : " + new SimpleDateFormat("EEEE, d MMMM yyyy", Locale.FRENCH).format(forfait.getDateExpiration()) :
                             "Aucun forfait actif";
-                    String cardInfo = "RFID: " + rfid + " - " + clientName + "\nForfait: " + statutForfait;
-                    scannedCards.add(cardInfo);
-                    cardsAdapter.notifyDataSetChanged();
+                    displayResult(rfid, clientName + "\nForfait: " + statutForfait);
+
+                    // Enregistrer la vérification du forfait
+                    saveForfaitVerification(clientName, rfid, statutForfait);
+
                 } else {
-                    displayOfflineResult(rfid, "Aucun forfait actif trouvé");
+                    displayResult(rfid, "Aucun forfait actif trouvé");
                 }
             }
 
             @Override
             public void onFailure(Call<ForfaitDTO> call, Throwable t) {
-                displayOfflineResult(rfid, "Forfait non récupéré (mode hors ligne)");
+                displayResult(rfid, "Forfait non récupéré (mode hors ligne)");
             }
         });
     }
 
     private void fetchForfaitStatusOffline(String rfid, String clientName) {
-        String cardInfo = "RFID: " + rfid + " - " + clientName + "\nForfait: Actif jusqu'à : Hors ligne";
+        String statutForfait = "Forfait Actif jusqu'à : Hors ligne";
+        displayResult(rfid, clientName + "\nForfait: " + statutForfait);
+    }
+
+    private void displayResult(String rfid, String message) {
+        String cardInfo = "RFID: " + rfid + " - " + message;
         scannedCards.add(cardInfo);
         cardsAdapter.notifyDataSetChanged();
     }
 
-    private void displayOfflineResult(String rfid, String message) {
-        String offlineResult = "RFID: " + rfid + " - " + message;
-        scannedCards.add(offlineResult);
-        cardsAdapter.notifyDataSetChanged();
-    }
-
     private void resetTrip() {
-        startTripButton.setVisibility(View.VISIBLE);
+        startTripButton.setVisibility(View.GONE);
         newTripButton.setVisibility(View.GONE);
         startTimeView.setText("");
         endTimeView.setText("");
-        destinationSpinner.setVisibility(View.GONE);
-        rfidDisplay.setVisibility(View.GONE);
-        scannedCardsListView.setVisibility(View.GONE);
         scannedCards.clear();
         cardsAdapter.notifyDataSetChanged();
     }
@@ -277,6 +282,9 @@ public class BusTripActivity extends AppCompatActivity {
                     endTimeView.setText("Fin du trajet : " + getFormattedDate());
                     endTripButton.setVisibility(View.GONE);
                     newTripButton.setVisibility(View.VISIBLE);
+
+                    // Enregistrer l'historique de fin de trajet
+                    saveBusHistory();
                 }
             }
 
@@ -297,7 +305,10 @@ public class BusTripActivity extends AppCompatActivity {
         int niveauBatterie = bm.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY);
         boolean isCharging = BatteryUtils.isCharging(this);
 
-        apiService.updateBusBatteryLevel(macAddress, niveauBatterie, isCharging).enqueue(new Callback<Void>() {
+        String terminalType = android.os.Build.MODEL;  // Récupérer le type de terminal
+        String androidId = Settings.Secure.getString(getContentResolver(), Settings.Secure.ANDROID_ID); // Récupérer l'ID Android
+
+        apiService.updateBusBatteryLevel(macAddress, niveauBatterie, isCharging, androidId, terminalType).enqueue(new Callback<Void>() {
             @Override
             public void onResponse(Call<Void> call, Response<Void> response) {
                 if (response.isSuccessful()) {
@@ -321,5 +332,131 @@ public class BusTripActivity extends AppCompatActivity {
                 .setPositiveButton("Confirmer", (dialog, which) -> onConfirm.run())
                 .setNegativeButton("Annuler", null)
                 .show();
+    }
+
+    private void saveForfaitVerification(String clientName, String rfid, String statutForfait) {
+        ForfaitVerificationDTO verificationDTO = new ForfaitVerificationDTO(
+                clientName,
+                rfid,
+                statutForfait,
+                macAddress,
+                userRole,
+                userName,
+                true
+        );
+
+        String terminalType = android.os.Build.MODEL;
+        String androidId = Settings.Secure.getString(getContentResolver(), Settings.Secure.ANDROID_ID);
+        int batteryLevel = ((BatteryManager) getSystemService(BATTERY_SERVICE)).getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY);
+        String connectionTime = getFormattedDate();
+
+        Call<Void> call = apiService.saveForfaitVerification(verificationDTO, androidId, batteryLevel, terminalType, chauffeurUniqueNumber, connectionTime);
+        call.enqueue(new Callback<Void>() {
+            @Override
+            public void onResponse(Call<Void> call, Response<Void> response) {
+                if (response.isSuccessful()) {
+                    Log.d(TAG, "Vérification du forfait enregistrée avec succès.");
+                } else {
+                    Log.e(TAG, "Erreur lors de l'enregistrement de la vérification.");
+                }
+            }
+
+            @Override
+            public void onFailure(Call<Void> call, Throwable t) {
+                Log.e(TAG, "Erreur lors de l'enregistrement de la vérification.", t);
+            }
+        });
+    }
+
+    private void startTrip(String macAddress, String destination, String chauffeurNom, String chauffeurUniqueNumber) {
+        String terminalType = android.os.Build.MODEL;
+        String androidId = Settings.Secure.getString(getContentResolver(), Settings.Secure.ANDROID_ID);
+        int batteryLevel = ((BatteryManager) getSystemService(BATTERY_SERVICE)).getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY);
+
+        Call<Void> call = apiService.startTrip(macAddress, destination, chauffeurNom, chauffeurUniqueNumber, batteryLevel, androidId, terminalType);
+        call.enqueue(new Callback<Void>() {
+            @Override
+            public void onResponse(Call<Void> call, Response<Void> response) {
+                if (response.isSuccessful()) {
+                    Toast.makeText(BusTripActivity.this, "Trajet démarré avec succès pour la destination : " + destination, Toast.LENGTH_SHORT).show();
+                } else {
+                    Toast.makeText(BusTripActivity.this, "Erreur lors du démarrage du trajet", Toast.LENGTH_SHORT).show();
+                }
+            }
+
+            @Override
+            public void onFailure(Call<Void> call, Throwable t) {
+                Toast.makeText(BusTripActivity.this, "Échec de la connexion au serveur", Toast.LENGTH_SHORT).show();
+            }
+        });
+    }
+
+    // Récupérer les lignes de trajet depuis la base de données
+    private void fetchDestinations() {
+        Call<List<LigneTrajetDTO>> call = apiService.getAllLignes();
+        call.enqueue(new Callback<List<LigneTrajetDTO>>() {
+            @Override
+            public void onResponse(Call<List<LigneTrajetDTO>> call, Response<List<LigneTrajetDTO>> response) {
+                if (response.isSuccessful() && response.body() != null) {
+                    List<LigneTrajetDTO> lignes = response.body();
+                    List<String> destinationNames = new ArrayList<>();
+                    destinationNames.add("Sélectionner une destination");
+                    for (LigneTrajetDTO ligne : lignes) {
+                        destinationNames.add(ligne.getNomLigne());
+                    }
+                    ArrayAdapter<String> adapter = new ArrayAdapter<>(BusTripActivity.this,
+                            android.R.layout.simple_spinner_item, destinationNames);
+                    adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+                    destinationSpinner.setAdapter(adapter);
+                } else {
+                    Toast.makeText(BusTripActivity.this, "Erreur lors de la récupération des destinations", Toast.LENGTH_SHORT).show();
+                }
+            }
+
+            @Override
+            public void onFailure(Call<List<LigneTrajetDTO>> call, Throwable t) {
+                Toast.makeText(BusTripActivity.this, "Échec de la récupération des destinations", Toast.LENGTH_SHORT).show();
+            }
+        });
+    }
+
+    // Méthode pour enregistrer l'historique du trajet
+    private void saveBusHistory() {
+        String destination = destinationSpinner.getSelectedItem().toString();
+        String androidId = Settings.Secure.getString(getContentResolver(), Settings.Secure.ANDROID_ID);
+        String connectionTime = getFormattedDate(); // Utiliser la méthode existante pour obtenir la date/heure actuelle
+
+        int batteryLevel = ((BatteryManager) getSystemService(BATTERY_SERVICE)).getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY);
+        String terminalType = android.os.Build.MODEL;
+
+        // Création de l'objet BusHistoryDTO avec tous les arguments requis
+        BusHistoryDTO busHistoryDTO = new BusHistoryDTO(
+                macAddress,
+                destination,
+                userName,
+                chauffeurUniqueNumber,
+                batteryLevel,
+                terminalType,
+                androidId,
+                connectionTime
+        );
+
+        // Envoi des données via l'API pour enregistrer l'historique
+        Call<Void> call = apiService.saveBusHistory(busHistoryDTO);
+        call.enqueue(new Callback<Void>() {
+            @Override
+            public void onResponse(Call<Void> call, Response<Void> response) {
+                if (response.isSuccessful()) {
+                    Log.d(TAG, "Historique du trajet enregistré avec succès.");
+                } else {
+                    Log.e(TAG, "Erreur lors de l'enregistrement de l'historique.");
+                }
+            }
+
+            @Override
+            public void onFailure(Call<Void> call, Throwable t) {
+                Log.e(TAG, "Erreur lors de l'enregistrement de l'historique.", t);
+            }
+        });
     }
 }

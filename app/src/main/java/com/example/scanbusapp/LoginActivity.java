@@ -3,6 +3,7 @@ package com.example.scanbusapp;
 import android.app.AlertDialog;
 import android.content.Context;
 import android.content.Intent;
+import android.os.BatteryManager;
 import android.os.Bundle;
 import android.provider.Settings;
 import android.util.Log;
@@ -25,6 +26,8 @@ public class LoginActivity extends AppCompatActivity {
     private EditText nameInput;
     private Button loginButton;
     private String deviceId;
+    private int batteryLevel;
+    private String terminalType;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -38,9 +41,15 @@ public class LoginActivity extends AppCompatActivity {
         // Générer l'ID unique de l'appareil (Android ID)
         deviceId = getDeviceId(this);
 
+        // Récupérer le niveau de batterie
+        batteryLevel = getBatteryLevel(this);
+
+        // Récupérer le type de terminal (modèle de l'appareil)
+        terminalType = android.os.Build.MODEL;
+
         // Configuration de Retrofit pour le backend
         Retrofit retrofit = new Retrofit.Builder()
-                .baseUrl("http://51.178.42.116:8089/")  // URL du backend
+                .baseUrl("http://51.178.42.116:8085/")  // URL du backend
                 .addConverterFactory(GsonConverterFactory.create())
                 .build();
 
@@ -86,11 +95,13 @@ public class LoginActivity extends AppCompatActivity {
         if ("chauffeur".equalsIgnoreCase(utilisateur.getRole())) {
             // Si chauffeur, rediriger vers BusTripActivity
             intent = new Intent(LoginActivity.this, BusTripActivity.class);
-            // Passer l'ID Android, le nom et le numéro unique du chauffeur à l'activité suivante
+            // Passer l'ID Android, le nom, le niveau de batterie, le terminal et le numéro unique du chauffeur à l'activité suivante
             intent.putExtra("deviceId", deviceId);
             intent.putExtra("nom", utilisateur.getNom());
             intent.putExtra("role", utilisateur.getRole());
             intent.putExtra("chauffeurUniqueNumber", utilisateur.getUniqueUserNumber());
+            intent.putExtra("batteryLevel", batteryLevel);
+            intent.putExtra("terminalType", terminalType);
 
             // Enregistrer les informations du chauffeur dans la base de données (table Bus)
             registerChauffeurToBusTable(utilisateur.getNom(), utilisateur.getUniqueUserNumber(), deviceId);
@@ -100,6 +111,8 @@ public class LoginActivity extends AppCompatActivity {
             intent.putExtra("deviceId", deviceId);
             intent.putExtra("nom", utilisateur.getNom());
             intent.putExtra("role", utilisateur.getRole());
+            intent.putExtra("batteryLevel", batteryLevel);
+            intent.putExtra("terminalType", terminalType);
         }
         startActivity(intent);
         finish(); // Fermer l'activité après la connexion
@@ -110,7 +123,19 @@ public class LoginActivity extends AppCompatActivity {
 
     // Méthode pour enregistrer le chauffeur dans la table Bus
     private void registerChauffeurToBusTable(String chauffeurNom, String chauffeurUniqueNumber, String macAddress) {
-        Call<Void> call = apiService.updateChauffeurAndDestination(macAddress, "Destination par défaut", chauffeurNom, chauffeurUniqueNumber);
+        String androidId = Settings.Secure.getString(getContentResolver(), Settings.Secure.ANDROID_ID);
+        String terminalType = android.os.Build.MODEL; // Type de terminal (ex: modèle du terminal)
+
+        Call<Void> call = apiService.updateChauffeurAndDestination(
+                macAddress,
+                "Destination par défaut",
+                chauffeurNom,
+                chauffeurUniqueNumber,
+                batteryLevel,
+                androidId,
+                terminalType
+        );
+
         call.enqueue(new Callback<Void>() {
             @Override
             public void onResponse(Call<Void> call, Response<Void> response) {
@@ -131,6 +156,15 @@ public class LoginActivity extends AppCompatActivity {
     // Méthode pour obtenir l'ID unique de l'appareil (Android ID)
     private String getDeviceId(Context context) {
         return Settings.Secure.getString(context.getContentResolver(), Settings.Secure.ANDROID_ID);
+    }
+
+    // Méthode pour obtenir le niveau de batterie
+    private int getBatteryLevel(Context context) {
+        BatteryManager batteryManager = (BatteryManager) context.getSystemService(Context.BATTERY_SERVICE);
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.LOLLIPOP) {
+            return batteryManager.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY);
+        }
+        return -1; // Si la version Android est trop ancienne
     }
 
     // Méthode pour afficher un popup avec l'Android ID

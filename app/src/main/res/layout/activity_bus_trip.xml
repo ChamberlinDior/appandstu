@@ -1,187 +1,179 @@
-<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<ScrollView
+    xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:padding="16dp"
     android:background="@android:color/white">
 
-    <!-- Navbar avec le titre affichant le nom et le rôle du chauffeur -->
-    <LinearLayout
-        android:id="@+id/navbar"
+    <RelativeLayout
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:layout_alignParentTop="true"
-        android:layout_marginBottom="16dp">
+        android:layout_height="wrap_content">
 
-        <TextView
-            android:id="@+id/navbar_title"
+        <!-- Navbar avec le titre affichant le nom et le rôle du chauffeur -->
+        <LinearLayout
+            android:id="@+id/navbar"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_alignParentTop="true"
+            android:layout_marginBottom="16dp">
+
+            <TextView
+                android:id="@+id/navbar_title"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Nom du Chauffeur - Rôle"
+                android:textSize="20sp"
+                android:textColor="@android:color/black"
+                android:layout_gravity="center_vertical"
+                android:layout_marginEnd="16dp"
+                android:textStyle="bold" />
+
+            <Button
+                android:id="@+id/logout_button"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Déconnexion"
+                android:textColor="#FFFFFF"
+                android:background="#F44336"
+                android:layout_gravity="end|center_vertical"
+                android:padding="8dp"
+                android:textSize="14sp" />
+        </LinearLayout>
+
+        <!-- Image indicative pour la destination -->
+        <ImageView
+            android:id="@+id/destination_arrow"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Nom du Chauffeur - Rôle"
-            android:textSize="20sp"
+            android:layout_below="@id/navbar"
+            android:layout_marginTop="8dp"
+            android:layout_centerHorizontal="true"
+            android:src="@drawable/th"
+            android:visibility="gone" />
+
+        <!-- Titre au-dessus de la liste des destinations -->
+        <TextView
+            android:id="@+id/destination_title"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="VEUILLEZ SELECTIONNER UNE DESTINATION"
+            android:textSize="18sp"
             android:textColor="@android:color/black"
-            android:layout_gravity="center_vertical"
-            android:layout_marginEnd="16dp"
+            android:layout_below="@id/navbar"
+            android:layout_centerHorizontal="true"
+            android:layout_marginTop="8dp"
             android:textStyle="bold" />
 
+        <!-- Spinner pour sélectionner la destination -->
+        <Spinner
+            android:id="@+id/destination_spinner"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_below="@id/destination_title"
+            android:layout_marginTop="16dp"
+            android:background="@android:drawable/edit_text"
+            android:padding="12dp"
+            android:textSize="18sp" />
+
+        <!-- Affichage de l'heure de début de trajet -->
+        <TextView
+            android:id="@+id/startTime_view"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Début du trajet :"
+            android:textSize="20sp"
+            android:textColor="@android:color/black"
+            android:fontFamily="monospace"
+            android:layout_below="@id/destination_spinner"
+            android:layout_marginTop="16dp" />
+
+        <!-- Affichage de l'heure de fin de trajet -->
+        <TextView
+            android:id="@+id/endTime_view"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Fin du trajet :"
+            android:textSize="20sp"
+            android:textColor="@android:color/black"
+            android:fontFamily="monospace"
+            android:layout_below="@id/startTime_view"
+            android:layout_marginTop="16dp" />
+
+        <!-- Adresse MAC -->
+        <TextView
+            android:id="@+id/macAddress_view"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Adresse MAC :"
+            android:textSize="18sp"
+            android:textColor="@android:color/black"
+            android:layout_alignParentBottom="true"
+            android:layout_marginBottom="16dp"
+            android:padding="8dp"
+            android:gravity="center" />
+
+        <!-- Ajout de la liste déroulante pour les cartes scannées -->
+        <ListView
+            android:id="@+id/scanned_cards_list"
+            android:layout_width="match_parent"
+            android:layout_height="200dp"
+            android:layout_below="@id/endTime_view"
+            android:layout_marginTop="16dp"
+            android:background="@android:drawable/edit_text"
+            android:divider="@android:color/darker_gray"
+            android:dividerHeight="1dp"
+            android:scrollbars="vertical" />
+
+        <!-- Boutons pour démarrer et terminer le trajet -->
+        <LinearLayout
+            android:id="@+id/button_layout"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_below="@id/scanned_cards_list"
+            android:layout_marginTop="24dp"
+            android:orientation="horizontal"
+            android:gravity="center">
+
+            <Button
+                android:id="@+id/startTrip_button"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Démarrer le trajet"
+                android:textColor="@android:color/white"
+                android:backgroundTint="#2196F3"
+                android:padding="12dp"
+                android:textSize="18sp"
+                android:layout_margin="8dp" />
+
+            <Button
+                android:id="@+id/endTrip_button"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Terminer le trajet"
+                android:textColor="@android:color/white"
+                android:backgroundTint="#2196F3"
+                android:padding="12dp"
+                android:textSize="18sp"
+                android:layout_margin="8dp" />
+        </LinearLayout>
+
+        <!-- Bouton pour commencer un nouveau trajet (caché par défaut) -->
         <Button
-            android:id="@+id/logout_button"
+            android:id="@+id/newTrip_button"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Déconnexion"
-            android:textColor="#FFFFFF"
-            android:background="#F44336"
-            android:layout_gravity="end|center_vertical"
-            android:padding="8dp"
-            android:textSize="14sp"/>
-    </LinearLayout>
-
-    <!-- ImageView pour afficher une flèche sous la navbar -->
-    <ImageView
-        android:id="@+id/destination_arrow"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_below="@id/navbar"
-        android:layout_marginTop="8dp"
-        android:layout_centerHorizontal="true"
-        android:src="@drawable/th"
-    android:visibility="gone" />
-
-    <!-- Spinner pour sélectionner la destination -->
-    <Spinner
-        android:id="@+id/destination_spinner"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_below="@id/destination_arrow"
-        android:layout_marginTop="16dp"
-        android:background="@android:drawable/edit_text"
-        android:padding="12dp"
-        android:textSize="18sp" />
-
-    <!-- Affichage du RFID scanné -->
-    <TextView
-        android:id="@+id/rfid_display"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="RFID scanné apparaîtra ici"
-        android:padding="10dp"
-        android:textSize="16sp"
-        android:textColor="@android:color/black"
-        android:background="@android:drawable/edit_text"
-        android:layout_below="@id/destination_spinner"
-        android:layout_marginTop="16dp"
-        android:focusable="false"
-        android:clickable="false" />
-
-    <!-- Zone d'affichage des résultats -->
-    <TextView
-        android:id="@+id/result_view"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:padding="10dp"
-        android:text="Result will appear here"
-        android:textSize="16sp"
-        android:textColor="@android:color/black"
-        android:layout_below="@id/rfid_display"
-        android:layout_marginTop="16dp"
-        android:background="@android:drawable/edit_text" />
-
-    <!-- Affichage de l'heure de début de trajet -->
-    <TextView
-        android:id="@+id/startTime_view"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="Début du trajet :"
-        android:textSize="20sp"
-        android:textColor="@android:color/black"
-        android:fontFamily="monospace"
-        android:layout_below="@id/result_view"
-        android:layout_marginTop="16dp" />
-
-    <!-- Affichage de l'heure de fin de trajet -->
-    <TextView
-        android:id="@+id/endTime_view"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="Fin du trajet :"
-        android:textSize="20sp"
-        android:textColor="@android:color/black"
-        android:fontFamily="monospace"
-        android:layout_below="@id/startTime_view"
-        android:layout_marginTop="16dp" />
-
-    <!-- Adresse MAC -->
-    <TextView
-        android:id="@+id/macAddress_view"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="Adresse MAC :"
-        android:textSize="18sp"
-        android:textColor="@android:color/black"
-        android:layout_alignParentBottom="true"
-        android:layout_marginBottom="16dp"
-        android:padding="8dp"
-        android:gravity="center" />
-
-    <!-- Ajout de la liste déroulante pour les cartes scannées -->
-    <ListView
-        android:id="@+id/scanned_cards_list"
-        android:layout_width="match_parent"
-        android:layout_height="200dp"
-        android:layout_below="@id/endTime_view"
-        android:layout_marginTop="16dp"
-        android:background="@android:drawable/edit_text"
-        android:divider="@android:color/darker_gray"
-        android:dividerHeight="1dp"
-        android:scrollbars="vertical" />
-
-    <!-- Boutons pour démarrer et terminer le trajet -->
-    <LinearLayout
-        android:id="@+id/button_layout"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_below="@id/scanned_cards_list"
-        android:layout_marginTop="24dp"
-        android:orientation="horizontal"
-        android:gravity="center">
-
-        <Button
-            android:id="@+id/startTrip_button"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="Démarrer le trajet"
+            android:text="Commencer un nouveau trajet"
             android:textColor="@android:color/white"
-            android:backgroundTint="#2196F3"
+            android:backgroundTint="#4CAF50"
+            android:layout_below="@id/button_layout"
+            android:layout_marginTop="24dp"
+            android:layout_centerHorizontal="true"
             android:padding="12dp"
             android:textSize="18sp"
-            android:layout_margin="8dp"/>
+            android:visibility="gone" />
 
-        <Button
-            android:id="@+id/endTrip_button"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="Terminer le trajet"
-            android:textColor="@android:color/white"
-            android:backgroundTint="#2196F3"
-            android:padding="12dp"
-            android:textSize="18sp"
-            android:layout_margin="8dp"/>
-    </LinearLayout>
-
-    <!-- Bouton pour commencer un nouveau trajet (caché par défaut) -->
-    <Button
-        android:id="@+id/newTrip_button"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="Commencer un nouveau trajet"
-        android:textColor="@android:color/white"
-        android:backgroundTint="#4CAF50"
-        android:layout_below="@id/button_layout"
-        android:layout_marginTop="24dp"
-        android:layout_centerHorizontal="true"
-        android:padding="12dp"
-        android:textSize="18sp"
-        android:visibility="gone"/>
-</RelativeLayout>
+    </RelativeLayout>
+</ScrollView>

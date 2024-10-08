@@ -12,7 +12,9 @@ import android.net.NetworkRequest;
 import android.net.Uri;
 import android.nfc.NfcAdapter;
 import android.nfc.Tag;
+import android.os.BatteryManager;
 import android.os.Bundle;
+import android.provider.Settings;
 import android.util.Log;
 import android.view.View;
 import android.widget.Button;
@@ -54,12 +56,12 @@ public class BusTicketActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_bus_ticket);
 
-        // Retrieve user information from intent
+        // Récupérer les informations utilisateur à partir de l'intent
         userName = getIntent().getStringExtra("nom");
         userRole = getIntent().getStringExtra("role");
         macAddress = getIntent().getStringExtra("deviceId");
 
-        // Initialize UI elements
+        // Initialisation des éléments UI
         rfidDisplay = findViewById(R.id.rfid_display);
         resultView = findViewById(R.id.result_view);
         userInfoDisplay = findViewById(R.id.user_info_display);
@@ -72,43 +74,42 @@ public class BusTicketActivity extends AppCompatActivity {
 
         dbHelper = new LocalDatabaseHelper(this);
 
-        // Display connected user info
+        // Affichage des informations de l'utilisateur connecté
         userInfoDisplay.setText("Connecté en tant que : " + userRole + " - " + userName);
 
-        // Masquer les boutons de forfait si l'utilisateur a le rôle de 'controleur'
+        // Masquer les boutons de forfait si l'utilisateur est un 'controleur'
         if ("controleur".equalsIgnoreCase(userRole)) {
             forfaitDayButton.setVisibility(View.GONE);
             forfaitWeekButton.setVisibility(View.GONE);
             forfaitMonthButton.setVisibility(View.GONE);
         }
 
-        // Setup Retrofit for API calls
+        // Configuration de Retrofit pour les appels d'API
         Retrofit retrofit = new Retrofit.Builder()
-                .baseUrl("http://51.178.42.116:8089/")
+                .baseUrl("http://51.178.42.116:8085/")
                 .addConverterFactory(GsonConverterFactory.create())
                 .build();
-
         apiService = retrofit.create(ApiService.class);
 
-        // NFC Setup
+        // Configuration du NFC
         mAdapter = NfcAdapter.getDefaultAdapter(this);
         mPendingIntent = PendingIntent.getActivity(this, 0,
                 new Intent(this, getClass()).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP),
                 PendingIntent.FLAG_MUTABLE);
 
-        // Setup network connectivity listener
+        // Configuration de la surveillance réseau
         connectivityManager = (ConnectivityManager) getSystemService(CONNECTIVITY_SERVICE);
         registerNetworkCallback();
 
-        // Generate ticket button logic
+        // Logique du bouton de génération de ticket
         generateTicketButton.setOnClickListener(v -> {
-            String selectedDestination = "Votre destination"; // This can be retrieved from UI in a real case
+            String selectedDestination = "Votre destination"; // À remplacer par la logique réelle de sélection
             String ticketContent = generateTicketContent(selectedDestination, getFormattedDate());
             resultView.setText(ticketContent);
             generateAndPrintTicket(ticketContent);
         });
 
-        // Logout button logic
+        // Déconnexion
         logoutButton.setOnClickListener(v -> {
             Toast.makeText(BusTicketActivity.this, "Déconnexion réussie", Toast.LENGTH_SHORT).show();
             Intent intent = new Intent(BusTicketActivity.this, LoginActivity.class);
@@ -116,12 +117,12 @@ public class BusTicketActivity extends AppCompatActivity {
             finish();
         });
 
-        // Forfait buttons management
+        // Gestion des boutons de forfait
         forfaitDayButton.setOnClickListener(v -> showConfirmationDialog("jour"));
         forfaitWeekButton.setOnClickListener(v -> showConfirmationDialog("semaine"));
         forfaitMonthButton.setOnClickListener(v -> showConfirmationDialog("mois"));
 
-        // Check forfait status via the dedicated button
+        // Vérification du statut du forfait via le bouton dédié
         checkForfaitStatusButton.setOnClickListener(v -> {
             String rfid = rfidDisplay.getText().toString();
             if (!rfid.isEmpty()) {
@@ -132,7 +133,35 @@ public class BusTicketActivity extends AppCompatActivity {
         });
     }
 
-    // Register for network changes
+    // Méthode pour enregistrer la vérification du forfait avec des informations supplémentaires
+    private void saveForfaitVerification(ForfaitVerificationDTO verificationDTO) {
+        String androidId = Settings.Secure.getString(getContentResolver(), Settings.Secure.ANDROID_ID);
+        BatteryManager bm = (BatteryManager) getSystemService(BATTERY_SERVICE);
+        int batteryLevel = bm.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY);
+        String terminalType = android.os.Build.MODEL;
+        String connectionTime = getFormattedDate();
+
+        Call<Void> verificationCall = apiService.saveForfaitVerification(
+                verificationDTO, androidId, batteryLevel, terminalType, macAddress, connectionTime);
+
+        verificationCall.enqueue(new Callback<Void>() {
+            @Override
+            public void onResponse(Call<Void> call, Response<Void> response) {
+                if (response.isSuccessful()) {
+                    Log.d(TAG, "Vérification du forfait enregistrée avec succès.");
+                } else {
+                    Log.e(TAG, "Erreur lors de l'enregistrement de la vérification.");
+                }
+            }
+
+            @Override
+            public void onFailure(Call<Void> call, Throwable t) {
+                Log.e(TAG, "Erreur lors de l'enregistrement de la vérification.", t);
+            }
+        });
+    }
+
+    // Enregistrement pour les changements de réseau
     private void registerNetworkCallback() {
         NetworkRequest networkRequest = new NetworkRequest.Builder()
                 .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
@@ -154,7 +183,7 @@ public class BusTicketActivity extends AppCompatActivity {
         });
     }
 
-    // Synchroniser les transactions hors ligne avec le serveur
+    // Synchronisation des transactions hors ligne avec le serveur
     private void synchronizeOfflineTransactions() {
         Cursor cursor = dbHelper.getOfflineTransactions();
 
@@ -186,7 +215,7 @@ public class BusTicketActivity extends AppCompatActivity {
         }
     }
 
-    // Synchroniser les forfaits depuis le serveur
+    // Synchronisation des forfaits depuis le serveur
     private void synchronizeForfaits() {
         Call<List<ClientDTO>> call = apiService.getAllClients();
         call.enqueue(new Callback<List<ClientDTO>>() {
@@ -210,7 +239,7 @@ public class BusTicketActivity extends AppCompatActivity {
         });
     }
 
-    // Méthode pour vérifier la connexion à Internet
+    // Méthode pour vérifier la connexion Internet
     private boolean isConnected() {
         ConnectivityManager cm = (ConnectivityManager) getSystemService(CONNECTIVITY_SERVICE);
         NetworkInfo activeNetwork = cm.getActiveNetworkInfo();
@@ -290,7 +319,7 @@ public class BusTicketActivity extends AppCompatActivity {
         return sdf.format(new java.util.Date());
     }
 
-    // Display a dialog to confirm the forfait activation
+    // Afficher une boîte de dialogue pour confirmer l'activation du forfait
     private void showConfirmationDialog(String forfaitType) {
         String rfid = rfidDisplay.getText().toString();
         if (rfid.isEmpty()) {
@@ -310,7 +339,7 @@ public class BusTicketActivity extends AppCompatActivity {
         alert.show();
     }
 
-    // Assign forfait to the user
+    // Assigner le forfait à l'utilisateur
     private void assignForfait(String rfid, String forfaitType) {
         if (isConnected()) {
             ForfaitDTO forfaitDTO = new ForfaitDTO(forfaitType, rfid);
@@ -339,7 +368,7 @@ public class BusTicketActivity extends AppCompatActivity {
         }
     }
 
-    // Check the forfait status and save the information
+    // Vérifier le statut du forfait et enregistrer les informations
     private void checkForfaitStatus(String rfid) {
         Call<ClientDTO> call = apiService.verifyCard(rfid);
         call.enqueue(new Callback<ClientDTO>() {
@@ -384,7 +413,7 @@ public class BusTicketActivity extends AppCompatActivity {
         });
     }
 
-    // Check offline status in local SQLite database
+    // Vérifier le statut hors ligne dans la base de données locale SQLite
     private void checkForfaitStatusOffline(String rfid) {
         Cursor cursor = dbHelper.getCardInfo(rfid);
 
@@ -410,26 +439,6 @@ public class BusTicketActivity extends AppCompatActivity {
             // Mettre à jour uniquement les éléments nécessaires, sans redémarrer l'activité
             rfidDisplay.setText(""); // Par exemple, vider l'affichage de l'RFID après vérification
             resultView.setText("");  // Réinitialiser les résultats
-        });
-    }
-
-    // Save forfait verification with the user's name
-    private void saveForfaitVerification(ForfaitVerificationDTO verification) {
-        Call<Void> verificationCall = apiService.saveForfaitVerification(verification);
-        verificationCall.enqueue(new Callback<Void>() {
-            @Override
-            public void onResponse(Call<Void> call, Response<Void> response) {
-                if (response.isSuccessful()) {
-                    Log.d(TAG, "Vérification du forfait enregistrée avec succès.");
-                } else {
-                    Log.e(TAG, "Erreur lors de l'enregistrement de la vérification.");
-                }
-            }
-
-            @Override
-            public void onFailure(Call<Void> call, Throwable t) {
-                Log.e(TAG, "Erreur lors de l'enregistrement de la vérification.", t);
-            }
         });
     }
 }

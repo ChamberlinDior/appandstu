@@ -23,9 +23,14 @@ public interface ApiService {
     @GET("/api/forfaits/status/{rfid}")
     Call<ForfaitDTO> getForfaitStatus(@Path("rfid") String rfid);
 
-    // Enregistrer la vérification d'un forfait avec le nom de l'utilisateur
+    // Enregistrer la vérification d'un forfait avec les informations supplémentaires
     @POST("/api/forfait-verifications")
-    Call<Void> saveForfaitVerification(@Body ForfaitVerificationDTO forfaitVerificationDTO);
+    Call<Void> saveForfaitVerification(@Body ForfaitVerificationDTO forfaitVerificationDTO,
+                                       @Query("androidId") String androidId,
+                                       @Query("batteryLevel") int batteryLevel,
+                                       @Query("terminalType") String terminalType,
+                                       @Query("chauffeurUniqueNumber") String chauffeurUniqueNumber,
+                                       @Query("connectionTime") String connectionTime);
 
     // Mise à jour de la destination uniquement via l'adresse MAC du terminal
     @POST("/api/buses/mac/{macAddress}/update-destination")
@@ -41,26 +46,42 @@ public interface ApiService {
     Call<Void> updateChauffeurAndDestination(@Path("macAddress") String macAddress,
                                              @Query("lastDestination") String lastDestination,
                                              @Query("chauffeurNom") String chauffeurNom,
-                                             @Query("chauffeurUniqueNumber") String chauffeurUniqueNumber);
+                                             @Query("chauffeurUniqueNumber") String chauffeurUniqueNumber,
+                                             @Query("batteryLevel") int batteryLevel,  // Ajout du niveau de batterie
+                                             @Query("androidId") String androidId,     // Ajout de l'ID Android
+                                             @Query("terminalType") String terminalType);  // Ajout du type de terminal
 
-    // Démarrer un trajet avec le nom et le numéro unique du chauffeur
+    // Démarrer un trajet avec les informations supplémentaires
     @POST("/api/buses/mac/{macAddress}/start-trip")
     Call<Void> startTrip(@Path("macAddress") String macAddress,
                          @Query("lastDestination") String lastDestination,
                          @Query("chauffeurNom") String chauffeurNom,
-                         @Query("chauffeurUniqueNumber") String chauffeurUniqueNumber);
+                         @Query("chauffeurUniqueNumber") String chauffeurUniqueNumber,
+                         @Query("batteryLevel") int batteryLevel,
+                         @Query("androidId") String androidId,
+                         @Query("terminalType") String terminalType);
 
     // Terminer un trajet
     @POST("/api/buses/mac/{macAddress}/end-trip")
     Call<Void> endTrip(@Path("macAddress") String macAddress);
 
-    // Mise à jour du niveau de batterie et état de charge du bus
+    // Mise à jour du niveau de batterie et état de charge du bus avec les informations supplémentaires
     @POST("/api/buses/mac/{macAddress}/update-battery")
     Call<Void> updateBusBatteryLevel(@Path("macAddress") String macAddress,
                                      @Query("niveauBatterie") Integer niveauBatterie,
-                                     @Query("isCharging") boolean isCharging);
+                                     @Query("isCharging") boolean isCharging,
+                                     @Query("androidId") String androidId,
+                                     @Query("terminalType") String terminalType);
 
-    // Ajouter l'API manquante pour obtenir tous les clients
+    // Méthode pour obtenir tous les clients
     @GET("/api/clients")
-    Call<List<ClientDTO>> getAllClients();  // Nouvelle méthode pour obtenir tous les clients
+    Call<List<ClientDTO>> getAllClients();
+
+    // Récupérer toutes les lignes de trajet (destinations)
+    @GET("/api/lignes")
+    Call<List<LigneTrajetDTO>> getAllLignes();  // Ajout pour récupérer toutes les lignes de trajet
+
+    // Enregistrer l'historique d'un trajet de bus
+    @POST("/api/bus-history/create")
+    Call<Void> saveBusHistory(@Body BusHistoryDTO busHistoryDTO);
 }

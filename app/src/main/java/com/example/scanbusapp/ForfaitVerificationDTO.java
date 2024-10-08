@@ -6,18 +6,20 @@ public class ForfaitVerificationDTO {
     private String statutForfait;
     private String androidId;
     private String roleUtilisateur;
-    private String nomUtilisateur;  // Ajout du nom de l'utilisateur qui effectue la vérification
+    private String nomUtilisateur;
+    private boolean forfaitActiverParClient;  // Nouvelle colonne pour indiquer si le forfait a été activé par le client
 
     public ForfaitVerificationDTO() {
     }
 
-    public ForfaitVerificationDTO(String nomClient, String rfid, String statutForfait, String androidId, String roleUtilisateur, String nomUtilisateur) {
+    public ForfaitVerificationDTO(String nomClient, String rfid, String statutForfait, String androidId, String roleUtilisateur, String nomUtilisateur, boolean forfaitActiverParClient) {
         this.nomClient = nomClient;
         this.rfid = rfid;
         this.statutForfait = statutForfait;
         this.androidId = androidId;
         this.roleUtilisateur = roleUtilisateur;
         this.nomUtilisateur = nomUtilisateur;
+        this.forfaitActiverParClient = forfaitActiverParClient;  // Initialisation de la colonne
     }
 
     // Getters et Setters
@@ -67,5 +69,13 @@ public class ForfaitVerificationDTO {
 
     public void setNomUtilisateur(String nomUtilisateur) {
         this.nomUtilisateur = nomUtilisateur;
+    }
+
+    public boolean isForfaitActiverParClient() {
+        return forfaitActiverParClient;
+    }
+
+    public void setForfaitActiverParClient(boolean forfaitActiverParClient) {
+        this.forfaitActiverParClient = forfaitActiverParClient;
     }
 }
