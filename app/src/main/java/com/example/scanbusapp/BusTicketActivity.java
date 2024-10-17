@@ -27,11 +27,13 @@ import androidx.appcompat.app.AppCompatActivity;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
+import java.util.Date;
 
 import retrofit2.Call;
 import retrofit2.Callback;
@@ -460,9 +462,9 @@ public class BusTicketActivity extends AppCompatActivity {
                 if (response.isSuccessful() && response.body() != null) {
                     ForfaitDTO forfait = response.body();
                     String statutForfait = forfait.getDateExpiration() != null ?
-                            "Forfait Actif jusqu'à : " + new SimpleDateFormat("EEEE, d MMMM yyyy", Locale.FRENCH).format(forfait.getDateExpiration()) :
+                            "Forfait Actif jusqu'à : " + new SimpleDateFormat("d MMMM yyyy", Locale.FRENCH).format(forfait.getDateExpiration()) :
                             "Aucun forfait actif";
-                    displayResult(rfid, clientName + "\nForfait: " + statutForfait);
+                    displayResult(rfid, clientName + "\n" + statutForfait);
 
                     // Enregistrer la vérification du forfait
                     saveForfaitVerification(clientName, rfid, statutForfait);
@@ -487,9 +489,14 @@ public class BusTicketActivity extends AppCompatActivity {
             boolean forfaitActive = cursor.getInt(cursor.getColumnIndexOrThrow("forfait_active")) == 1;
             String forfaitExpiration = cursor.getString(cursor.getColumnIndexOrThrow("forfait_expiration"));
 
-            String statutForfait = forfaitActive ?
-                    "Forfait Actif jusqu'à : " + forfaitExpiration :
-                    "Aucun forfait actif";
+            String statutForfait;
+            if (forfaitActive) {
+                // Conversion de la date en format lisible
+                String formattedDate = formatDate(forfaitExpiration);
+                statutForfait = "Forfait Actif jusqu'à : " + formattedDate;
+            } else {
+                statutForfait = "Aucun forfait actif";
+            }
 
             displayResult(rfid, "Client : " + clientName + "\n" + statutForfait);
 
@@ -499,6 +506,19 @@ public class BusTicketActivity extends AppCompatActivity {
         } else {
             displayResult(rfid, "Carte non trouvée. Aucun forfait actif.");
             Toast.makeText(this, "Cette carte n'a jamais été scannée auparavant.", Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    // Nouvelle méthode pour formater la date
+    private String formatDate(String dateString) {
+        SimpleDateFormat inputFormat = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault());
+        SimpleDateFormat outputFormat = new SimpleDateFormat("d MMMM yyyy", Locale.FRENCH);
+        try {
+            Date date = inputFormat.parse(dateString);
+            return outputFormat.format(date);
+        } catch (ParseException e) {
+            e.printStackTrace();
+            return dateString; // Retourne la date originale en cas d'erreur
         }
     }
 
