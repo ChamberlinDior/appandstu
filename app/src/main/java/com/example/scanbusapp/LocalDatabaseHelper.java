@@ -21,6 +21,10 @@ public class LocalDatabaseHelper extends SQLiteOpenHelper {
     private static final String TABLE_OFFLINE_TRANSACTIONS = "offline_transactions";
     private static final String COLUMN_FORFAIT_TYPE = "forfait_type";
 
+    // Nouvelle table pour les vérifications hors ligne
+    private static final String TABLE_OFFLINE_VERIFICATIONS = "offline_verifications";
+    private static final String COLUMN_FORFAIT_STATUS = "forfait_status";
+
     public LocalDatabaseHelper(Context context) {
         super(context, DATABASE_NAME, null, DATABASE_VERSION);
     }
@@ -40,8 +44,15 @@ public class LocalDatabaseHelper extends SQLiteOpenHelper {
                 + "PRIMARY KEY (" + COLUMN_RFID + ", " + COLUMN_FORFAIT_TYPE + ")"
                 + ")";
 
+        String CREATE_OFFLINE_VERIFICATIONS_TABLE = "CREATE TABLE " + TABLE_OFFLINE_VERIFICATIONS + "("
+                + COLUMN_RFID + " TEXT,"
+                + COLUMN_CLIENT_NAME + " TEXT,"
+                + COLUMN_FORFAIT_STATUS + " TEXT"
+                + ")";
+
         db.execSQL(CREATE_CARDS_TABLE);
-        db.execSQL(CREATE_OFFLINE_TRANSACTIONS_TABLE);  // Create new table
+        db.execSQL(CREATE_OFFLINE_TRANSACTIONS_TABLE);
+        db.execSQL(CREATE_OFFLINE_VERIFICATIONS_TABLE);  // Create new table for offline verifications
     }
 
     @Override
@@ -53,6 +64,13 @@ public class LocalDatabaseHelper extends SQLiteOpenHelper {
                     + "PRIMARY KEY (" + COLUMN_RFID + ", " + COLUMN_FORFAIT_TYPE + ")"
                     + ")";
             db.execSQL(CREATE_OFFLINE_TRANSACTIONS_TABLE);
+
+            String CREATE_OFFLINE_VERIFICATIONS_TABLE = "CREATE TABLE " + TABLE_OFFLINE_VERIFICATIONS + "("
+                    + COLUMN_RFID + " TEXT,"
+                    + COLUMN_CLIENT_NAME + " TEXT,"
+                    + COLUMN_FORFAIT_STATUS + " TEXT"
+                    + ")";
+            db.execSQL(CREATE_OFFLINE_VERIFICATIONS_TABLE);
         }
     }
 
@@ -80,11 +98,30 @@ public class LocalDatabaseHelper extends SQLiteOpenHelper {
         db.close();
     }
 
+    // Enregistrer une vérification hors ligne
+    public void saveOfflineVerification(String rfid, String clientName, String forfaitStatus) {
+        SQLiteDatabase db = this.getWritableDatabase();
+        ContentValues values = new ContentValues();
+        values.put(COLUMN_RFID, rfid);
+        values.put(COLUMN_CLIENT_NAME, clientName);
+        values.put(COLUMN_FORFAIT_STATUS, forfaitStatus);
+
+        db.insertWithOnConflict(TABLE_OFFLINE_VERIFICATIONS, null, values, SQLiteDatabase.CONFLICT_REPLACE);
+        db.close();
+    }
+
     // Supprimer une transaction hors ligne spécifique
     public void deleteOfflineTransaction(String rfid, String forfaitType) {
         SQLiteDatabase db = this.getWritableDatabase();
         db.delete(TABLE_OFFLINE_TRANSACTIONS, COLUMN_RFID + "=? AND " + COLUMN_FORFAIT_TYPE + "=?",
                 new String[]{rfid, forfaitType});
+        db.close();
+    }
+
+    // Supprimer une vérification hors ligne spécifique après synchronisation
+    public void deleteOfflineVerification(String rfid) {
+        SQLiteDatabase db = this.getWritableDatabase();
+        db.delete(TABLE_OFFLINE_VERIFICATIONS, COLUMN_RFID + "=?", new String[]{rfid});
         db.close();
     }
 
@@ -99,6 +136,13 @@ public class LocalDatabaseHelper extends SQLiteOpenHelper {
     public Cursor getOfflineTransactions() {
         SQLiteDatabase db = this.getReadableDatabase();
         return db.query(TABLE_OFFLINE_TRANSACTIONS, new String[]{COLUMN_RFID, COLUMN_FORFAIT_TYPE},
+                null, null, null, null, null);
+    }
+
+    // Récupérer toutes les vérifications hors ligne
+    public Cursor getOfflineVerifications() {
+        SQLiteDatabase db = this.getReadableDatabase();
+        return db.query(TABLE_OFFLINE_VERIFICATIONS, new String[]{COLUMN_RFID, COLUMN_CLIENT_NAME, COLUMN_FORFAIT_STATUS},
                 null, null, null, null, null);
     }
 
