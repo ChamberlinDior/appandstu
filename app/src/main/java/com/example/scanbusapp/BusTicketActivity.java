@@ -55,7 +55,8 @@ public class BusTicketActivity extends AppCompatActivity {
     private ConnectivityManager connectivityManager;
 
     private static int ticketCounter = 1; // Compteur de ticket
-
+    private AppDatabase db; // Instance de la base de données
+    private CarteDao carteDao;
     // Ajout pour gérer les scans hors ligne
     private SharedPreferences sharedPreferences;
     private static final String OFFLINE_SCANS_PREF = "offline_scans_pref";
@@ -64,6 +65,10 @@ public class BusTicketActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_bus_ticket);
+
+        // Initialiser la base de données et le DAO
+        db = AppDatabase.getInstance(this);
+        carteDao = db.carteDao();
 
         // Récupérer les informations utilisateur à partir de l'intent
         userName = getIntent().getStringExtra("nom");
@@ -98,7 +103,7 @@ public class BusTicketActivity extends AppCompatActivity {
 
         // Configuration de Retrofit pour les appels d'API
         Retrofit retrofit = new Retrofit.Builder()
-                .baseUrl("http://51.178.42.116:8085/")
+                .baseUrl("http://51.178.42.116:8089/")
                 .addConverterFactory(GsonConverterFactory.create())
                 .build();
         apiService = retrofit.create(ApiService.class);
@@ -234,9 +239,8 @@ public class BusTicketActivity extends AppCompatActivity {
     // Enregistrer une vérification hors ligne
     private void saveOfflineVerification(ForfaitVerificationDTO verificationDTO) {
         // Enregistrer dans la base de données locale ou SharedPreferences
-        // Ici, nous utilisons SharedPreferences pour simplifier
         Set<String> offlineVerifications = new HashSet<>(sharedPreferences.getStringSet("offline_verifications", new HashSet<>()));
-        offlineVerifications.add(verificationDTO.getRfid()); // Vous pouvez stocker plus d'informations si nécessaire
+        offlineVerifications.add(verificationDTO.getRfid());
         sharedPreferences.edit().putStringSet("offline_verifications", offlineVerifications).apply();
     }
 
@@ -256,8 +260,6 @@ public class BusTicketActivity extends AppCompatActivity {
                     public void onResponse(Call<Void> call, Response<Void> response) {
                         if (response.isSuccessful()) {
                             Log.d(TAG, "Forfait hors ligne synchronisé avec succès.");
-                            // Supprimer la transaction hors ligne une fois synchronisée
-                            dbHelper.deleteOfflineTransaction(rfid, forfaitType);
                         } else {
                             Log.e(TAG, "Erreur lors de la synchronisation du forfait hors ligne.");
                         }
@@ -281,7 +283,8 @@ public class BusTicketActivity extends AppCompatActivity {
                 if (response.isSuccessful() && response.body() != null) {
                     List<ClientDTO> clients = response.body();
                     for (ClientDTO client : clients) {
-                        dbHelper.saveCardInfo(client.getRfid(), client.getNom(), client.isForfaitActif(), client.getForfaitExpiration());
+                        dbHelper.saveCardInfo(client.getRfid(), client.getNom(), client.isForfaitActif(), client.getForfaitExpiration(), client.getForfaitStatus());
+
                     }
                     Toast.makeText(BusTicketActivity.this, "Données synchronisées avec succès", Toast.LENGTH_SHORT).show();
                 } else {
@@ -481,7 +484,7 @@ public class BusTicketActivity extends AppCompatActivity {
         });
     }
 
-    // Fetching and displaying offline status including client name
+    // Récupérer le statut du forfait hors ligne
     private void fetchForfaitStatusOffline(String rfid) {
         Cursor cursor = dbHelper.getCardInfo(rfid);
         if (cursor != null && cursor.moveToFirst()) {
@@ -491,7 +494,6 @@ public class BusTicketActivity extends AppCompatActivity {
 
             String statutForfait;
             if (forfaitActive) {
-                // Conversion de la date en format lisible
                 String formattedDate = formatDate(forfaitExpiration);
                 statutForfait = "Forfait Actif jusqu'à : " + formattedDate;
             } else {
@@ -509,7 +511,7 @@ public class BusTicketActivity extends AppCompatActivity {
         }
     }
 
-    // Nouvelle méthode pour formater la date
+    // Méthode pour formater la date
     private String formatDate(String dateString) {
         SimpleDateFormat inputFormat = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault());
         SimpleDateFormat outputFormat = new SimpleDateFormat("d MMMM yyyy", Locale.FRENCH);
@@ -518,7 +520,7 @@ public class BusTicketActivity extends AppCompatActivity {
             return outputFormat.format(date);
         } catch (ParseException e) {
             e.printStackTrace();
-            return dateString; // Retourne la date originale en cas d'erreur
+            return dateString;
         }
     }
 

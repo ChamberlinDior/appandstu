@@ -5,6 +5,7 @@ import android.app.PendingIntent;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.database.Cursor;
+import android.graphics.Color;
 import android.net.ConnectivityManager;
 import android.net.Network;
 import android.net.NetworkCapabilities;
@@ -18,19 +19,22 @@ import android.provider.Settings;
 import android.util.Log;
 import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
-import android.widget.Button;
 import android.widget.ImageView;
-import android.widget.ListView;
 import android.widget.Spinner;
 import android.widget.TextView;
 import android.widget.Toast;
 import android.view.View;
+import android.widget.LinearLayout;
+import android.widget.Button;
 
 import androidx.appcompat.app.AppCompatActivity;
 
+import java.net.InetAddress;
+import java.net.NetworkInterface;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Date;
 import java.util.List;
 import java.util.Locale;
@@ -49,12 +53,13 @@ public class BusTripActivity extends AppCompatActivity {
     private ApiService apiService;
     private Spinner destinationSpinner;
     private TextView startTimeView, endTimeView, macAddressView, navbarTitle;
-    private ListView scannedCardsListView;
-    private Button startTripButton, endTripButton, logoutButton, newTripButton;
-    private ImageView destinationArrow;
+    private TextView scannedCardInfo;
+    private TextView selectedDestinationTitle; // TextView pour la destination sélectionnée
+    private LinearLayout startTripLayout, endTripLayout;
+    private LinearLayout destinationSelectionLayout;
+    private Button logoutButton, newTripButton;
+    private ImageView destinationIcon;
     private String macAddress, userName, userRole, chauffeurUniqueNumber;
-    private ArrayList<String> scannedCards;
-    private ArrayAdapter<String> cardsAdapter;
     private static final String TAG = "BusTripActivity";
     private NfcAdapter mAdapter;
     private PendingIntent mPendingIntent;
@@ -62,9 +67,17 @@ public class BusTripActivity extends AppCompatActivity {
     private LocalDatabaseHelper dbHelper;
     private ConnectivityManager connectivityManager;
 
-    // Ajout pour gérer les scans hors ligne
+    // Gestion des scans hors ligne
     private SharedPreferences sharedPreferences;
     private static final String OFFLINE_SCANS_PREF = "offline_scans_pref";
+
+    // Variables pour sauvegarder l'état
+    private boolean isDestinationSelected = false;
+    private boolean isTripStarted = false;
+    private boolean isTripEnded = false;
+    private String selectedDestination = "";
+    private String startTime = "";
+    private String endTime = "";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -83,27 +96,24 @@ public class BusTripActivity extends AppCompatActivity {
         endTimeView = findViewById(R.id.endTime_view);
         macAddressView = findViewById(R.id.macAddress_view);
         navbarTitle = findViewById(R.id.navbar_title);
-        scannedCardsListView = findViewById(R.id.scanned_cards_list);
-        startTripButton = findViewById(R.id.startTrip_button);
-        endTripButton = findViewById(R.id.endTrip_button);
+        scannedCardInfo = findViewById(R.id.scanned_card_info);
+        startTripLayout = findViewById(R.id.startTrip_layout);
+        endTripLayout = findViewById(R.id.endTrip_layout);
         newTripButton = findViewById(R.id.newTrip_button);
         logoutButton = findViewById(R.id.logout_button);
-        destinationArrow = findViewById(R.id.destination_arrow);
+        destinationIcon = findViewById(R.id.destination_icon);
+        destinationSelectionLayout = findViewById(R.id.destination_selection_layout);
+        selectedDestinationTitle = findViewById(R.id.selected_destination_title);
 
         macAddressView.setText("Adresse MAC : " + macAddress);
         navbarTitle.setText(userName + " - " + (userRole != null ? userRole : "Rôle non défini") + " - " + chauffeurUniqueNumber);
 
         // Masquer les vues inutiles au départ
-        startTripButton.setVisibility(View.GONE); // Masquer le bouton jusqu'à sélection de destination
-        endTripButton.setVisibility(View.GONE);
+        startTripLayout.setVisibility(View.GONE);
+        endTripLayout.setVisibility(View.GONE);
         newTripButton.setVisibility(View.GONE);
-        scannedCardsListView.setVisibility(View.GONE);
-        destinationArrow.setVisibility(View.GONE);  // Masquer la flèche
-
-        // Initialiser la liste des cartes scannées
-        scannedCards = new ArrayList<>();
-        cardsAdapter = new ArrayAdapter<>(this, android.R.layout.simple_list_item_1, scannedCards);
-        scannedCardsListView.setAdapter(cardsAdapter);
+        scannedCardInfo.setVisibility(View.GONE);
+        selectedDestinationTitle.setVisibility(View.GONE);
 
         dbHelper = new LocalDatabaseHelper(this);
 
@@ -112,7 +122,7 @@ public class BusTripActivity extends AppCompatActivity {
 
         // Configuration de Retrofit pour interagir avec le backend
         Retrofit retrofit = new Retrofit.Builder()
-                .baseUrl("http://51.178.42.116:8085/")
+                .baseUrl("http://51.178.42.116:8089/")
                 .addConverterFactory(GsonConverterFactory.create())
                 .build();
         apiService = retrofit.create(ApiService.class);
@@ -128,7 +138,7 @@ public class BusTripActivity extends AppCompatActivity {
                 new Intent(this, getClass()).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP),
                 PendingIntent.FLAG_MUTABLE);
 
-        // Configuration de la surveillance réseau
+        // Surveillance réseau
         connectivityManager = (ConnectivityManager) getSystemService(CONNECTIVITY_SERVICE);
         registerNetworkCallback();
 
@@ -138,45 +148,54 @@ public class BusTripActivity extends AppCompatActivity {
         // Récupérer et envoyer le niveau de batterie au backend
         sendBatteryLevel();
 
-        // Sélectionner une destination
+        // Restauration de l'état si disponible
+        if (savedInstanceState != null) {
+            isDestinationSelected = savedInstanceState.getBoolean("isDestinationSelected", false);
+            isTripStarted = savedInstanceState.getBoolean("isTripStarted", false);
+            isTripEnded = savedInstanceState.getBoolean("isTripEnded", false);
+            selectedDestination = savedInstanceState.getString("selectedDestination", "");
+            startTime = savedInstanceState.getString("startTime", "");
+            endTime = savedInstanceState.getString("endTime", "");
+
+            restoreUIState();
+        }
+
+        // Gestion du Spinner de destinations
         destinationSpinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
+            boolean isFirstSelection = true; // Pour éviter de déclencher lors de la configuration initiale
+
             @Override
             public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
+                if (isFirstSelection) {
+                    isFirstSelection = false;
+                    return;
+                }
+
                 if (position != 0) {  // Une destination est sélectionnée
-                    scannedCardsListView.setVisibility(View.VISIBLE); // Montrer le tableau
-                    startTripButton.setVisibility(View.VISIBLE); // Montrer le bouton pour démarrer le trajet
-                    destinationArrow.setVisibility(View.GONE);  // Masquer la flèche après sélection
+                    String selectedDestination = parent.getItemAtPosition(position).toString();
+
+                    // Afficher la boîte de dialogue de confirmation
+                    showConfirmationDialog(
+                            "Confirmer la destination",
+                            "Vous avez sélectionné : " + selectedDestination + ". Voulez-vous confirmer cette destination ?",
+                            () -> {
+                                onDestinationConfirmed(selectedDestination);
+                            },
+                            () -> {
+                                destinationSpinner.setSelection(0);
+                            }
+                    );
+                } else {
+                    selectedDestinationTitle.setVisibility(View.GONE);
+                    startTripLayout.setVisibility(View.GONE);
                 }
             }
 
             @Override
             public void onNothingSelected(AdapterView<?> parent) {
-                startTripButton.setVisibility(View.GONE);  // Cacher le bouton si aucune destination n'est sélectionnée
+                // Ne rien faire
             }
         });
-
-        // Démarrer un trajet
-        startTripButton.setOnClickListener(v -> {
-            String selectedDestination = destinationSpinner.getSelectedItem().toString();
-            if (!selectedDestination.equals("Sélectionner une destination")) {
-                showConfirmationDialog(
-                        "Démarrer le trajet",
-                        "Voulez-vous vraiment démarrer ce trajet avec la destination : " + selectedDestination + " ?",
-                        () -> {
-                            startTripButton.setVisibility(View.GONE);
-                            startTimeView.setText("Début du trajet : " + getFormattedDate());
-                            endTripButton.setVisibility(View.VISIBLE); // Montrer le bouton pour terminer le trajet
-                            // Appel API pour démarrer le trajet
-                            startTrip(macAddress, selectedDestination, userName, chauffeurUniqueNumber);
-                        }
-                );
-            } else {
-                Toast.makeText(BusTripActivity.this, "Veuillez sélectionner une destination", Toast.LENGTH_SHORT).show();
-            }
-        });
-
-        // Terminer un trajet
-        endTripButton.setOnClickListener(v -> endTrip(macAddress));
 
         // Déconnexion
         logoutButton.setOnClickListener(v -> {
@@ -189,7 +208,127 @@ public class BusTripActivity extends AppCompatActivity {
         newTripButton.setOnClickListener(v -> showConfirmationDialog(
                 "Commencer un nouveau trajet",
                 "Voulez-vous vraiment démarrer un nouveau trajet ?",
-                this::resetTrip));
+                this::resetTrip,
+                null));
+    }
+
+    // Méthode pour obtenir l'adresse IP de l'appareil Android
+    private String getLocalIpAddress() {
+        try {
+            List<NetworkInterface> interfaces = Collections.list(NetworkInterface.getNetworkInterfaces());
+            for (NetworkInterface intf : interfaces) {
+                List<InetAddress> addrs = Collections.list(intf.getInetAddresses());
+                for (InetAddress addr : addrs) {
+                    if (!addr.isLoopbackAddress() && addr.isSiteLocalAddress()) {
+                        return addr.getHostAddress();
+                    }
+                }
+            }
+        } catch (Exception ex) {
+            Log.e(TAG, "Erreur lors de la récupération de l'adresse IP", ex);
+        }
+        return "IP non trouvée";
+    }
+
+    // Méthode pour gérer la confirmation de la destination
+    private void onDestinationConfirmed(String selectedDestination) {
+        this.selectedDestination = selectedDestination;
+        isDestinationSelected = true;
+
+        selectedDestinationTitle.setText("Destination : " + selectedDestination);
+        selectedDestinationTitle.setVisibility(View.VISIBLE);
+
+        startTripLayout.setVisibility(View.VISIBLE);
+
+        destinationSelectionLayout.setVisibility(View.GONE);
+
+        destinationSpinner.setEnabled(false);
+    }
+
+    @Override
+    protected void onSaveInstanceState(Bundle outState) {
+        super.onSaveInstanceState(outState);
+        outState.putBoolean("isDestinationSelected", isDestinationSelected);
+        outState.putBoolean("isTripStarted", isTripStarted);
+        outState.putBoolean("isTripEnded", isTripEnded);
+        outState.putString("selectedDestination", selectedDestination);
+        outState.putString("startTime", startTime);
+        outState.putString("endTime", endTime);
+    }
+
+    private void restoreUIState() {
+        if (isDestinationSelected) {
+            selectedDestinationTitle.setText("Destination : " + selectedDestination);
+            selectedDestinationTitle.setVisibility(View.VISIBLE);
+
+            destinationSelectionLayout.setVisibility(View.GONE);
+            destinationSpinner.setEnabled(false);
+
+            if (isTripStarted) {
+                startTimeView.setText("Début du trajet : " + startTime);
+                startTripLayout.setVisibility(View.GONE);
+                endTripLayout.setVisibility(View.VISIBLE);
+            } else {
+                startTripLayout.setVisibility(View.VISIBLE);
+                endTripLayout.setVisibility(View.GONE);
+            }
+
+            if (isTripEnded) {
+                endTimeView.setText("Fin du trajet : " + endTime);
+                endTripLayout.setVisibility(View.GONE);
+                newTripButton.setVisibility(View.VISIBLE);
+            } else {
+                newTripButton.setVisibility(View.GONE);
+            }
+        } else {
+            destinationSelectionLayout.setVisibility(View.VISIBLE);
+            selectedDestinationTitle.setVisibility(View.GONE);
+            startTripLayout.setVisibility(View.GONE);
+            endTripLayout.setVisibility(View.GONE);
+            newTripButton.setVisibility(View.GONE);
+        }
+    }
+
+    // Méthode appelée lors du clic sur le bouton "Démarrer le trajet"
+    public void onStartTripClick(View view) {
+        if (!selectedDestination.isEmpty()) {
+            showConfirmationDialog(
+                    "Démarrer le trajet",
+                    "Voulez-vous vraiment démarrer le trajet pour la destination : " + selectedDestination + " ?",
+                    () -> {
+                        isTripStarted = true;
+                        startTime = getFormattedDate();
+
+                        startTripLayout.setVisibility(View.GONE);
+                        startTimeView.setText("Début du trajet : " + startTime);
+                        endTripLayout.setVisibility(View.VISIBLE);
+
+                        startTrip(macAddress, selectedDestination, userName, chauffeurUniqueNumber);
+                    },
+                    null
+            );
+        } else {
+            Toast.makeText(BusTripActivity.this, "Aucune destination sélectionnée", Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    // Méthode appelée lors du clic sur le bouton "Terminer le trajet"
+    public void onEndTripClick(View view) {
+        showConfirmationDialog(
+                "Terminer le trajet",
+                "Êtes-vous sûr de vouloir terminer ce trajet ?",
+                () -> {
+                    isTripEnded = true;
+                    endTime = getFormattedDate();
+
+                    endTripLayout.setVisibility(View.GONE);
+                    endTimeView.setText("Fin du trajet : " + endTime);
+                    newTripButton.setVisibility(View.VISIBLE);
+
+                    endTrip(macAddress);
+                },
+                null
+        );
     }
 
     // Méthode pour vérifier la connexion Internet
@@ -211,7 +350,7 @@ public class BusTripActivity extends AppCompatActivity {
                 Log.d(TAG, "Connexion Internet rétablie. Synchronisation des transactions hors ligne...");
                 synchronizeForfaits();
                 synchronizeOfflineTransactions();
-                processOfflineScans(); // Traiter les scans hors ligne
+                processOfflineScans();
                 updateUI();
             }
 
@@ -227,11 +366,9 @@ public class BusTripActivity extends AppCompatActivity {
         Set<String> offlineScans = new HashSet<>(sharedPreferences.getStringSet(OFFLINE_SCANS_PREF, new HashSet<>()));
 
         for (String rfid : offlineScans) {
-            // Re-traiter le scan comme s'il venait d'être scanné
             checkForfaitStatus(rfid);
         }
 
-        // Effacer les scans hors ligne après traitement
         sharedPreferences.edit().remove(OFFLINE_SCANS_PREF).apply();
     }
 
@@ -244,11 +381,11 @@ public class BusTripActivity extends AppCompatActivity {
 
     // Enregistrer une vérification hors ligne
     private void saveOfflineVerification(ForfaitVerificationDTO verificationDTO) {
-        // Enregistrer dans la base de données locale ou SharedPreferences
-        // Ici, nous utilisons SharedPreferences pour simplifier
-        Set<String> offlineVerifications = new HashSet<>(sharedPreferences.getStringSet("offline_verifications", new HashSet<>()));
-        offlineVerifications.add(verificationDTO.getRfid()); // Vous pouvez stocker plus d'informations si nécessaire
-        sharedPreferences.edit().putStringSet("offline_verifications", offlineVerifications).apply();
+        dbHelper.saveOfflineVerification(
+                verificationDTO.getRfid(),
+                verificationDTO.getNomClient(),
+                verificationDTO.getStatutForfait()
+        );
     }
 
     // Synchronisation des transactions hors ligne avec le serveur
@@ -267,8 +404,6 @@ public class BusTripActivity extends AppCompatActivity {
                     public void onResponse(Call<Void> call, Response<Void> response) {
                         if (response.isSuccessful()) {
                             Log.d(TAG, "Forfait hors ligne synchronisé avec succès.");
-                            // Supprimer la transaction hors ligne une fois synchronisée
-                            dbHelper.deleteOfflineTransaction(rfid, forfaitType);
                         } else {
                             Log.e(TAG, "Erreur lors de la synchronisation du forfait hors ligne.");
                         }
@@ -292,7 +427,8 @@ public class BusTripActivity extends AppCompatActivity {
                 if (response.isSuccessful() && response.body() != null) {
                     List<ClientDTO> clients = response.body();
                     for (ClientDTO client : clients) {
-                        dbHelper.saveCardInfo(client.getRfid(), client.getNom(), client.isForfaitActif(), client.getForfaitExpiration());
+                        dbHelper.saveCardInfo(client.getRfid(), client.getNom(), client.isForfaitActif(), client.getForfaitExpiration(), client.getForfaitStatus());
+
                     }
                     Toast.makeText(BusTripActivity.this, "Données synchronisées avec succès", Toast.LENGTH_SHORT).show();
                 } else {
@@ -331,8 +467,6 @@ public class BusTripActivity extends AppCompatActivity {
             byte[] tagId = tag.getId();
             String rfid = bytesToHex(tagId);
             Log.d(TAG, "RFID scanné : " + rfid);
-
-            // Vérifier le statut de la carte
             checkForfaitStatus(rfid);
         }
     }
@@ -355,6 +489,7 @@ public class BusTripActivity extends AppCompatActivity {
                         ClientDTO client = response.body();
                         fetchForfaitStatus(rfid, client.getNom());
                     } else {
+                        setScreenRed();
                         displayResult(rfid, "Client non trouvé");
                     }
                 }
@@ -365,7 +500,6 @@ public class BusTripActivity extends AppCompatActivity {
                 }
             });
         } else {
-            // Enregistrer le scan hors ligne
             saveOfflineScan(rfid);
             fetchForfaitStatusOffline(rfid);
         }
@@ -381,18 +515,22 @@ public class BusTripActivity extends AppCompatActivity {
                     String statutForfait = forfait.getDateExpiration() != null ?
                             "Forfait Actif jusqu'à : " + new SimpleDateFormat("d MMMM yyyy", Locale.FRENCH).format(forfait.getDateExpiration()) :
                             "Aucun forfait actif";
+
+                    if ("Aucun forfait actif".equals(statutForfait)) {
+                        setScreenRed();
+                    }
+
                     displayResult(rfid, clientName + "\n" + statutForfait);
-
-                    // Enregistrer la vérification du forfait
                     saveForfaitVerification(clientName, rfid, statutForfait);
-
                 } else {
+                    setScreenRed();
                     displayResult(rfid, "Aucun forfait actif trouvé");
                 }
             }
 
             @Override
             public void onFailure(Call<ForfaitDTO> call, Throwable t) {
+                setScreenRed();
                 displayResult(rfid, "Erreur lors de la récupération du forfait.");
             }
         });
@@ -407,25 +545,59 @@ public class BusTripActivity extends AppCompatActivity {
 
             String statutForfait;
             if (forfaitActive) {
-                // Conversion de la date en format lisible
                 String formattedDate = formatDate(forfaitExpiration);
                 statutForfait = "Forfait Actif jusqu'à : " + formattedDate;
+                setScreenGreen(); // Couleur verte pour un forfait actif
             } else {
                 statutForfait = "Aucun forfait actif";
+                setScreenRed(); // Couleur rouge pour un forfait inactif
             }
 
             displayResult(rfid, "Client : " + clientName + "\n" + statutForfait);
-
-            // Enregistrer la vérification du forfait hors ligne
             saveForfaitVerification(clientName, rfid, statutForfait);
-
         } else {
+            setScreenRed(); // Couleur rouge si aucun forfait trouvé
             displayResult(rfid, "Carte non trouvée. Aucun forfait actif.");
             Toast.makeText(this, "Cette carte n'a jamais été scannée auparavant.", Toast.LENGTH_SHORT).show();
         }
     }
 
-    // Nouvelle méthode pour formater la date
+    private void setScreenRed() {
+        runOnUiThread(() -> {
+            // Changer l'arrière-plan de l'écran en rouge
+            getWindow().getDecorView().setBackgroundColor(Color.RED);
+
+            // Changer l'arrière-plan du bloc de forfait en rouge
+            scannedCardInfo.setBackgroundColor(Color.RED);
+
+            // Ajouter un délai pour revenir à la couleur d'origine
+            new android.os.Handler().postDelayed(() -> {
+                // Remettre la couleur d'arrière-plan à sa couleur d'origine (blanc)
+                getWindow().getDecorView().setBackgroundColor(Color.WHITE);
+                scannedCardInfo.setBackgroundColor(Color.WHITE); // Remettre le bloc à blanc
+            }, 2000); // Délai de 2 secondes
+        });
+    }
+    private void setScreenGreen() {
+        runOnUiThread(() -> {
+            // Changer l'arrière-plan de l'écran en vert
+            getWindow().getDecorView().setBackgroundColor(Color.GREEN);
+
+            // Changer l'arrière-plan du bloc de forfait en vert
+            scannedCardInfo.setBackgroundColor(Color.GREEN);
+
+            // Ajouter un délai pour revenir à la couleur d'origine
+            new android.os.Handler().postDelayed(() -> {
+                // Remettre la couleur d'arrière-plan à sa couleur d'origine (blanc)
+                getWindow().getDecorView().setBackgroundColor(Color.WHITE);
+                scannedCardInfo.setBackgroundColor(Color.WHITE); // Remettre le bloc à blanc
+            }, 2000); // Délai de 2 secondes
+        });
+    }
+
+
+
+    // Méthode pour formater la date
     private String formatDate(String dateString) {
         SimpleDateFormat inputFormat = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault());
         SimpleDateFormat outputFormat = new SimpleDateFormat("d MMMM yyyy", Locale.FRENCH);
@@ -434,14 +606,14 @@ public class BusTripActivity extends AppCompatActivity {
             return outputFormat.format(date);
         } catch (ParseException e) {
             e.printStackTrace();
-            return dateString; // Retourne la date originale en cas d'erreur
+            return dateString;
         }
     }
 
     private void displayResult(String rfid, String message) {
         String cardInfo = "RFID: " + rfid + " - " + message;
-        scannedCards.add(cardInfo);
-        cardsAdapter.notifyDataSetChanged();
+        scannedCardInfo.setText(cardInfo);
+        scannedCardInfo.setVisibility(View.VISIBLE);
     }
 
     // Méthode pour enregistrer la vérification du forfait avec des informations supplémentaires
@@ -477,12 +649,10 @@ public class BusTripActivity extends AppCompatActivity {
                 @Override
                 public void onFailure(Call<Void> call, Throwable t) {
                     Log.e(TAG, "Erreur lors de l'enregistrement de la vérification.", t);
-                    // Enregistrer localement pour synchronisation ultérieure
                     saveOfflineVerification(verificationDTO);
                 }
             });
         } else {
-            // Enregistrer localement pour synchronisation ultérieure
             saveOfflineVerification(verificationDTO);
         }
     }
@@ -490,20 +660,30 @@ public class BusTripActivity extends AppCompatActivity {
     // Méthode pour rafraîchir l'interface utilisateur sans redémarrer l'activité
     private void updateUI() {
         runOnUiThread(() -> {
-            // Mettre à jour uniquement les éléments nécessaires, sans redémarrer l'activité
-            // Par exemple, vider l'affichage des cartes scannées
-            scannedCards.clear();
-            cardsAdapter.notifyDataSetChanged();
+            scannedCardInfo.setText("");
+            scannedCardInfo.setVisibility(View.GONE);
         });
     }
 
     private void resetTrip() {
-        startTripButton.setVisibility(View.GONE);
+        isDestinationSelected = false;
+        isTripStarted = false;
+        isTripEnded = false;
+        selectedDestination = "";
+        startTime = "";
+        endTime = "";
+
         newTripButton.setVisibility(View.GONE);
+        endTripLayout.setVisibility(View.GONE);
         startTimeView.setText("");
         endTimeView.setText("");
-        scannedCards.clear();
-        cardsAdapter.notifyDataSetChanged();
+        scannedCardInfo.setText("");
+        scannedCardInfo.setVisibility(View.GONE);
+        destinationSelectionLayout.setVisibility(View.VISIBLE);
+        destinationSpinner.setSelection(0);
+        destinationSpinner.setEnabled(true);
+
+        selectedDestinationTitle.setVisibility(View.GONE);
     }
 
     private void endTrip(String macAddress) {
@@ -513,11 +693,8 @@ public class BusTripActivity extends AppCompatActivity {
             public void onResponse(Call<Void> call, Response<Void> response) {
                 if (response.isSuccessful()) {
                     Toast.makeText(BusTripActivity.this, "Trajet terminé avec succès", Toast.LENGTH_SHORT).show();
-                    endTimeView.setText("Fin du trajet : " + getFormattedDate());
-                    endTripButton.setVisibility(View.GONE);
+                    endTimeView.setText("Fin du trajet : " + endTime);
                     newTripButton.setVisibility(View.VISIBLE);
-
-                    // Enregistrer l'historique de fin de trajet
                     saveBusHistory();
                 }
             }
@@ -539,8 +716,8 @@ public class BusTripActivity extends AppCompatActivity {
         int niveauBatterie = bm.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY);
         boolean isCharging = BatteryUtils.isCharging(this);
 
-        String terminalType = android.os.Build.MODEL;  // Récupérer le type de terminal
-        String androidId = Settings.Secure.getString(getContentResolver(), Settings.Secure.ANDROID_ID); // Récupérer l'ID Android
+        String terminalType = android.os.Build.MODEL;
+        String androidId = Settings.Secure.getString(getContentResolver(), Settings.Secure.ANDROID_ID);
 
         apiService.updateBusBatteryLevel(macAddress, niveauBatterie, isCharging, androidId, terminalType).enqueue(new Callback<Void>() {
             @Override
@@ -559,13 +736,18 @@ public class BusTripActivity extends AppCompatActivity {
         });
     }
 
-    private void showConfirmationDialog(String title, String message, Runnable onConfirm) {
-        new AlertDialog.Builder(this)
+    private void showConfirmationDialog(String title, String message, Runnable onConfirm, Runnable onCancel) {
+        AlertDialog.Builder builder = new AlertDialog.Builder(this)
                 .setTitle(title)
                 .setMessage(message)
                 .setPositiveButton("Confirmer", (dialog, which) -> onConfirm.run())
-                .setNegativeButton("Annuler", null)
-                .show();
+                .setNegativeButton("Annuler", (dialog, which) -> {
+                    if (onCancel != null) {
+                        onCancel.run();
+                    }
+                });
+
+        builder.show();
     }
 
     private void startTrip(String macAddress, String destination, String chauffeurNom, String chauffeurUniqueNumber) {
@@ -591,7 +773,6 @@ public class BusTripActivity extends AppCompatActivity {
         });
     }
 
-    // Récupérer les lignes de trajet depuis la base de données
     private void fetchDestinations() {
         Call<List<LigneTrajetDTO>> call = apiService.getAllLignes();
         call.enqueue(new Callback<List<LigneTrajetDTO>>() {
@@ -622,14 +803,13 @@ public class BusTripActivity extends AppCompatActivity {
 
     // Méthode pour enregistrer l'historique du trajet
     private void saveBusHistory() {
-        String destination = destinationSpinner.getSelectedItem().toString();
+        String destination = selectedDestination;
         String androidId = Settings.Secure.getString(getContentResolver(), Settings.Secure.ANDROID_ID);
-        String connectionTime = getFormattedDate(); // Utiliser la méthode existante pour obtenir la date/heure actuelle
+        String connectionTime = getFormattedDate();
 
         int batteryLevel = ((BatteryManager) getSystemService(BATTERY_SERVICE)).getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY);
         String terminalType = android.os.Build.MODEL;
 
-        // Création de l'objet BusHistoryDTO avec tous les arguments requis
         BusHistoryDTO busHistoryDTO = new BusHistoryDTO(
                 macAddress,
                 destination,
@@ -641,7 +821,6 @@ public class BusTripActivity extends AppCompatActivity {
                 connectionTime
         );
 
-        // Envoi des données via l'API pour enregistrer l'historique
         Call<Void> call = apiService.saveBusHistory(busHistoryDTO);
         call.enqueue(new Callback<Void>() {
             @Override

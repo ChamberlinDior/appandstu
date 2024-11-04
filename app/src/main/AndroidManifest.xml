@@ -1,13 +1,20 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.example.scanbusapp">
+    <!-- Permissions nécessaires pour le fonctionnement de l'application -->
+    <uses-permission android:name="android.permission.NFC"/>
+    <uses-permission android:name="android.permission.INTERNET"/>
 
-    <!-- Permissions nécessaires -->
+
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.NFC" />
-
-    <!-- NFC requis pour l'application -->
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
+    <uses-permission android:name="android.permission.VIBRATE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" /> <!-- NFC requis pour l'application -->
     <uses-feature
         android:name="android.hardware.nfc"
         android:required="true" />
@@ -20,44 +27,48 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.ScanBusApp">
-
-        <!-- Déclaration de l'activité TicketActivity pour la génération et l'impression des tickets -->
         <activity
-            android:name=".TicketActivity"
-            android:exported="false"
-            android:theme="@style/Theme.ScanBusApp" />
-
-        <!-- Déclaration de BusTripActivity -->
-        <activity
-            android:name=".BusTripActivity"
-            android:exported="false"
-            android:theme="@style/Theme.ScanBusApp" />
-
+            android:name=".ControllerActivity"
+            android:exported="false" />
         <!-- Déclaration de LoginActivity comme activité principale (écran de connexion) -->
         <activity
             android:name=".LoginActivity"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
+
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
-        </activity>
-
-        <!-- Déclaration de BusTicketActivity -->
+        </activity> <!-- Déclaration de BusTicketActivity pour la gestion des tickets de bus -->
         <activity
             android:name=".BusTicketActivity"
-            android:exported="false" />
+            android:exported="true"
+            android:theme="@style/Theme.ScanBusApp">
 
-        <!-- Déclaration de NFCReaderActivity pour la lecture des numéros RFID -->
-        <activity
-            android:name=".NFCReaderActivity"
-            android:exported="false">
+            <!-- Intent-filter pour gérer la découverte des tags NFC -->
             <intent-filter>
                 <action android:name="android.nfc.action.TAG_DISCOVERED" />
+
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity> <!-- Déclaration de TicketActivity pour la génération et l'impression des tickets -->
+        <activity
+            android:name=".TicketActivity"
+            android:exported="false"
+            android:theme="@style/Theme.ScanBusApp" /> <!-- Déclaration de BusTripActivity pour la gestion des trajets -->
+        <activity
+            android:name=".BusTripActivity"
+            android:exported="false"
+            android:theme="@style/Theme.ScanBusApp" /> <!-- Déclaration de NFCReaderActivity pour la lecture des numéros RFID -->
+        <activity
+            android:name=".NFCReaderActivity"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.nfc.action.TAG_DISCOVERED" />
+
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
         </activity>
-
     </application>
 
 </manifest>

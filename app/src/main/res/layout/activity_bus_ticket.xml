@@ -1,8 +1,10 @@
 <RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:padding="16dp"
-    android:background="@android:color/white">
+    android:background="@android:color/white"
+    tools:context=".BusTicketActivity">
 
     <!-- Affichage des informations de l'utilisateur connecté (rôle et nom) -->
     <TextView
@@ -45,12 +47,25 @@
         android:layout_marginTop="16dp"
         android:background="@android:drawable/edit_text" />
 
+    <!-- Zone d'affichage du ticket généré -->
+    <TextView
+        android:id="@+id/ticket_display"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Ticket généré apparaîtra ici"
+        android:textSize="16sp"
+        android:textColor="@android:color/black"
+        android:padding="10dp"
+        android:layout_below="@id/result_view"
+        android:layout_marginTop="16dp"
+        android:background="@android:drawable/edit_text" />
+
     <!-- Layout en grille pour organiser les boutons -->
     <GridLayout
         android:id="@+id/grid_layout"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_below="@id/result_view"
+        android:layout_below="@id/ticket_display"
         android:layout_marginTop="16dp"
         android:columnCount="2"
         android:rowCount="2"
@@ -111,7 +126,7 @@
         android:textColor="@android:color/white"
         android:layout_below="@id/grid_layout"
         android:layout_marginTop="16dp"
-        android:visibility="visible" /> <!-- Affiché pour les caissiers -->
+        android:visibility="visible" />
 
     <!-- Bouton de déconnexion -->
     <Button
